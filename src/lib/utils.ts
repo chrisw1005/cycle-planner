@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { DrugInventoryDelta } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -39,4 +40,24 @@ export function formatOralInventory(totalTablets: number, tabsPerBox: number | n
   if (boxes === 0) return `${remaining} 顆`
   if (remaining === 0) return `${boxes} 盒`
   return `${boxes} 盒 ${remaining} 顆`
+}
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  Injectable: '針劑',
+  Oral: '口服',
+  PCT: 'PCT',
+}
+
+export function groupDeltasByCategory(
+  deltas: DrugInventoryDelta[]
+): { category: string; label: string; items: DrugInventoryDelta[] }[] {
+  const order = ['Injectable', 'Oral', 'PCT']
+  const grouped = new Map<string, DrugInventoryDelta[]>()
+  for (const d of deltas) {
+    if (!grouped.has(d.category)) grouped.set(d.category, [])
+    grouped.get(d.category)!.push(d)
+  }
+  return order
+    .filter(cat => grouped.has(cat))
+    .map(cat => ({ category: cat, label: CATEGORY_LABELS[cat] || cat, items: grouped.get(cat)! }))
 }

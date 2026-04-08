@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import { formatOralInventory, getDayLabels } from '@/lib/utils'
+import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/utils'
 import type { CycleCell, DrugInventoryDelta } from '@/types'
 
 
@@ -31,15 +31,18 @@ function splitDrugEntry(v: string): [string, string] | null {
   return match ? [match[1], match[2]] : null
 }
 
-// Build rich text for a cell: each entry as name (bold dark) + dose (gray), separated by newlines
-function buildRichText(entries: string[]): ExcelJS.CellRichTextValue {
+// Build rich text for a cell: each entry as name (bold dark) + padded dose (gray), separated by newlines
+function buildRichText(entries: string[], colChars: number): ExcelJS.CellRichTextValue {
   const richText: ExcelJS.RichText[] = []
+  // Calibri 13 is wider than Calibri 11 (Excel default width unit), scale down usable chars
+  const usableChars = Math.floor(colChars * 0.75)
   entries.forEach((entry, i) => {
     if (i > 0) richText.push({ text: '\n' })
     const parts = splitDrugEntry(entry)
     if (parts) {
-      richText.push({ font: NAME_FONT, text: parts[0] + '  ' })
-      richText.push({ font: DOSE_FONT, text: parts[1] })
+      const gap = Math.max(2, usableChars - parts[0].length - parts[1].length)
+      richText.push({ font: NAME_FONT, text: parts[0] })
+      richText.push({ font: DOSE_FONT, text: ' '.repeat(gap) + parts[1] })
     } else {
       richText.push({ font: NAME_FONT, text: entry })
     }
@@ -81,6 +84,24 @@ export function exportScheduleToXLSX(
 
   const LINE_HEIGHT = 20
 
+  // Pre-calculate column widths from cellMap so buildRichText can pad entries
+  const colWidths: number[] = [12] // index 0 = Week column
+  for (let day = 1; day <= 7; day++) {
+    let maxLen = dayLabels[day - 1].length
+    for (let week = 1; week <= totalWeeks; week++) {
+      const entries = cellMap.get(`${week}-${day}`) || []
+      for (const entry of entries) {
+        maxLen = Math.max(maxLen, entry.length)
+      }
+    }
+    colWidths.push(Math.max(maxLen * 1.3 + 2, 14))
+  }
+
+  // Apply column widths
+  for (let c = 0; c < colWidths.length; c++) {
+    ws.getColumn(c + 1).width = colWidths[c]
+  }
+
   // Data rows
   for (let week = 1; week <= totalWeeks; week++) {
     const row = ws.addRow([`Week ${week}`])
@@ -93,7 +114,7 @@ export function exportScheduleToXLSX(
 
       const cellRef = row.getCell(day + 1)
       if (entries.length > 0) {
-        cellRef.value = buildRichText(entries)
+        cellRef.value = buildRichText(entries, colWidths[day])
       }
       cellRef.alignment = { wrapText: true, vertical: 'top' }
       cellRef.border = THIN_BORDER
@@ -106,19 +127,6 @@ export function exportScheduleToXLSX(
     weekCell.font = WEEK_FONT
     weekCell.alignment = { horizontal: 'center', vertical: 'middle' }
     weekCell.border = THIN_BORDER
-  }
-
-  // Auto-fit column widths
-  ws.getColumn(1).width = 12
-  for (let c = 2; c <= 8; c++) {
-    let maxLen = dayLabels[c - 2].length
-    ws.getColumn(c).eachCell((cell) => {
-      const val = cell.text || ''
-      for (const line of val.split('\n')) {
-        maxLen = Math.max(maxLen, line.length)
-      }
-    })
-    ws.getColumn(c).width = Math.max(maxLen * 1.3 + 2, 14)
   }
 
   // --- Drug Stats Table ---
@@ -136,20 +144,31 @@ export function exportScheduleToXLSX(
       cell.border = THIN_BORDER
     })
 
-    for (const d of deltas) {
-      const isOral = d.category === 'Oral' || d.category === 'PCT'
-      const isE3D = d.ester_type === 'E3D'
-      const needed = isOral
-        ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
-        : isE3D
-          ? `${d.needed_vials} 瓶/劑`
-          : `${d.needed_ml} ml (${d.needed_vials} 瓶)`
-      const row = ws.addRow([d.drug_name, needed])
-      row.eachCell((cell) => {
-        cell.font = BODY_FONT
-        cell.border = THIN_BORDER
-        cell.alignment = { vertical: 'middle' }
-      })
+    const groups = groupDeltasByCategory(deltas)
+    for (const group of groups) {
+      // Category header row — merged across both columns, centered
+      const catRow = ws.addRow([group.label])
+      ws.mergeCells(catRow.number, 1, catRow.number, 2)
+      catRow.getCell(1).font = { name: 'Calibri', bold: true, size: 13, color: { argb: 'FF555555' } }
+      catRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      catRow.getCell(1).border = THIN_BORDER
+      catRow.getCell(2).border = THIN_BORDER
+
+      for (const d of group.items) {
+        const isOral = d.category === 'Oral' || d.category === 'PCT'
+        const isE3D = d.ester_type === 'E3D'
+        const needed = isOral
+          ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+          : isE3D
+            ? `${d.needed_vials} 瓶/劑`
+            : `${d.needed_ml} ml (${d.needed_vials} 瓶)`
+        const row = ws.addRow([d.drug_name, needed])
+        row.eachCell((cell) => {
+          cell.font = BODY_FONT
+          cell.border = THIN_BORDER
+          cell.alignment = { vertical: 'middle' }
+        })
+      }
     }
   }
 

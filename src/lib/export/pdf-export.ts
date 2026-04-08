@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { formatOralInventory, getDayLabels } from '@/lib/utils'
+import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/utils'
 import type { CycleCell, DrugInventoryDelta } from '@/types'
 
 let cachedFont: string | null = null
@@ -20,6 +20,7 @@ async function loadCJKFont(doc: jsPDF): Promise<boolean> {
     }
     doc.addFileToVFS('NotoSansTC.ttf', cachedFont)
     doc.addFont('NotoSansTC.ttf', 'NotoSansTC', 'normal')
+    doc.addFont('NotoSansTC.ttf', 'NotoSansTC', 'bold')
     return true
   } catch {
     return false
@@ -176,16 +177,31 @@ export async function exportScheduleToPDF(
     doc.text(hasCJK ? '藥物用量統計' : 'Drug Stats', 14, 15)
 
     const statsHeaders = hasCJK ? ['藥物', '需求量'] : ['Drug', 'Needed']
-    const statsBody = deltas.map((d) => {
-      const isOral = d.category === 'Oral' || d.category === 'PCT'
-      const isE3D = d.ester_type === 'E3D'
-      const needed = isOral
-        ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
-        : isE3D
-          ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
-          : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`
-      return [d.drug_name, needed]
-    })
+    const groups = groupDeltasByCategory(deltas)
+    const statsBody: any[][] = []
+    for (const group of groups) {
+      // Category header row — spans both columns, centered
+      statsBody.push([{
+        content: group.label,
+        colSpan: 2,
+        styles: {
+          halign: 'center' as const,
+          fontStyle: 'bold' as const,
+          fillColor: [240, 240, 240],
+          textColor: [80, 80, 80],
+        },
+      }])
+      for (const d of group.items) {
+        const isOral = d.category === 'Oral' || d.category === 'PCT'
+        const isE3D = d.ester_type === 'E3D'
+        const needed = isOral
+          ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+          : isE3D
+            ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
+            : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`
+        statsBody.push([d.drug_name, needed])
+      }
+    }
 
     autoTable(doc, {
       startY: 20,
