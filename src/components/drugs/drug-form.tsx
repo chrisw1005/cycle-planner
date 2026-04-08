@@ -148,7 +148,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                 <div className="space-y-2">
                   <Label>選擇藥物模板</Label>
                   <Select onValueChange={(v: string | null) => v && handleTemplateSelect(v)}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full h-auto min-h-8 [&_*[data-slot=select-value]]:line-clamp-none">
                       <SelectValue placeholder="選擇藥物…">
                         {(value: string | null) => {
                           if (!value) return '選擇藥物…'
@@ -307,7 +307,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                       <p className="text-xs text-muted-foreground mt-1">顆（散裝）</p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground text-right">
                     共 {(parseInt(inventoryBoxes) || 0) * (parseInt(tabsPerBox) || 100) + (parseInt(inventoryLoose) || 0)} 顆
                   </p>
                 </div>
