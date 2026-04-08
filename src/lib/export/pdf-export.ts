@@ -155,9 +155,9 @@ export async function exportScheduleToPDF(
           doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(parts[0], x, y)
-          // Dose — normal lighter, right aligned
+          // Dose — normal, darker gray for readability, right aligned
           doc.setFont(fontName, 'normal', 'normal')
-          doc.setTextColor(120, 120, 120)
+          doc.setTextColor(80, 80, 80)
           doc.text(parts[1], xRight, y, { align: 'right' })
         } else {
           doc.setFont(fontName, 'normal', 'bold')
