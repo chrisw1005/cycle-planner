@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Minus, Save, ArrowLeft, Download, Trash2, MoreHorizontal, Archive } from 'lucide-react'
+import { Plus, Minus, Save, ArrowLeft, Download, Trash2, MoreHorizontal, Archive, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { statusColors, statusLabels } from '@/lib/constants/cycle-status'
@@ -190,12 +190,22 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                 <>
                   <span>|</span>
                   <span>開始:</span>
-                  <Input
-                    type="date"
-                    className="h-7 w-auto text-sm"
-                    value={cycle.start_date || ''}
-                    onChange={(e) => updateCycle.mutate({ id, start_date: e.target.value || null })}
-                  />
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="date"
+                      className="h-7 w-auto text-sm"
+                      value={cycle.start_date || ''}
+                      onChange={(e) => updateCycle.mutate({ id, start_date: e.target.value || null })}
+                    />
+                    {cycle.start_date && (
+                      <button
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => updateCycle.mutate({ id, start_date: null })}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </>
               ) : (
                 cycle.start_date && <span>| 開始: {new Date(cycle.start_date).toLocaleDateString('zh-TW')}</span>

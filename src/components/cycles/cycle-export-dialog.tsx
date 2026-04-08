@@ -165,10 +165,10 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                         <TableRow key={d.drug_id}>
                           <TableCell className="font-medium">{d.drug_name}</TableCell>
                           <TableCell className="text-right">
-                            {isOral ? formatOralInventory(d.needed_ml, d.tabs_per_box) : `${d.needed_ml} ml`}
+                            {isOral ? `${Math.round(d.needed_ml)} 顆` : `${d.needed_ml} ml`}
                           </TableCell>
                           <TableCell className="text-right">
-                            {isOral ? `${d.needed_vials} 盒` : `${d.needed_vials} 瓶`}
+                            {isOral ? formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box) : `${d.needed_vials} 瓶`}
                           </TableCell>
                         </TableRow>
                       )
