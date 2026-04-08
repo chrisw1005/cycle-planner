@@ -80,7 +80,7 @@ export async function exportScheduleToPDF(
   }
 
   const fontSize = 9
-  const entrySpacing = 3.5 // mm between each drug entry
+  const entrySpacing = 3.8 // mm between each drug entry
   const padding = 2
 
   autoTable(doc, {
@@ -140,17 +140,20 @@ export async function exportScheduleToPDF(
       for (const entry of entries) {
         const parts = splitDrugEntry(entry)
         if (parts) {
-          // Drug name — bold dark, left aligned
+          // Drug name — simulated bold (double draw), dark, left aligned
           doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(parts[0], x, y)
-          // Dose — bold lighter, right aligned
+          doc.text(parts[0], x + 0.12, y)
+          // Dose — simulated bold, lighter, right aligned
           doc.setTextColor(120, 120, 120)
           doc.text(parts[1], xRight, y, { align: 'right' })
+          doc.text(parts[1], xRight + 0.12, y, { align: 'right' })
         } else {
           doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(entry, x, y)
+          doc.text(entry, x + 0.12, y)
         }
         y += entrySpacing
       }
