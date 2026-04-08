@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useCycle, useCycleCells } from '@/hooks/use-cycles'
+import { useCycle, useCycleCells, useCycles } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
@@ -24,6 +24,7 @@ interface CycleExportDialogProps {
 
 export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogProps) {
   const { data: cycle, isLoading } = useCycle(id)
+  const { data: allCycles } = useCycles()
   const { data: savedCells } = useCycleCells(id)
   const { data: allDrugs } = useDrugs()
 
@@ -63,6 +64,25 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
     return adjustDeltasForSkippedCells(base, displayCells, cycle.cycle_drugs as any)
   }, [cycle, allDrugs, displayCells])
 
+  const buildPdfTitle = () => {
+    if (!cycle) return 'Cycle'
+    const personName = (cycle as any).person?.nickname || 'Unknown'
+    // Find this person's cycle index (sorted by created_at)
+    const personCycles = allCycles
+      ?.filter((c) => c.person_id === cycle.person_id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || []
+    const idx = personCycles.findIndex((c) => c.id === cycle.id) + 1
+    const cycleNum = idx > 0 ? idx : 1
+    // End date: start_date + totalWeeks * 7 days
+    let endDateStr = ''
+    if (cycle.start_date) {
+      const end = new Date(cycle.start_date)
+      end.setDate(end.getDate() + cycle.total_weeks * 7)
+      endDateStr = ` (${end.getFullYear()}/${String(end.getMonth() + 1).padStart(2, '0')})`
+    }
+    return `${personName} - Cycle ${cycleNum}${endDateStr}`
+  }
+
   const handleXLSXExport = () => {
     if (!cycle) return
     const personName = (cycle as any).person?.nickname || 'Unknown'
@@ -71,8 +91,8 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
 
   const handlePDFExport = () => {
     if (!cycle) return
-    const personName = (cycle as any).person?.nickname || 'Unknown'
-    exportScheduleToPDF(cycle.name || 'Cycle', personName, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date)
+    const title = buildPdfTitle()
+    exportScheduleToPDF(title, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date)
   }
 
   return (

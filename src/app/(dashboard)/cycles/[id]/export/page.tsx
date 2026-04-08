@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useMemo } from 'react'
-import { useCycle, useCycleCells, useUpdateCycleStatus } from '@/hooks/use-cycles'
+import { useCycle, useCycleCells, useCycles, useUpdateCycleStatus } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas } from '@/lib/calculations/vial-calculator'
@@ -20,6 +20,7 @@ import type { CycleCell } from '@/types'
 export default function ExportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: cycle, isLoading } = useCycle(id)
+  const { data: allCycles } = useCycles()
   const { data: savedCells } = useCycleCells(id)
   const { data: allDrugs } = useDrugs()
   const updateStatus = useUpdateCycleStatus()
@@ -92,13 +93,19 @@ export default function ExportPage({ params }: { params: Promise<{ id: string }>
   const handlePDFExport = () => {
     if (!cycle) return
     const personName = (cycle as any).person?.nickname || 'Unknown'
-    exportScheduleToPDF(
-      cycle.name || 'Cycle',
-      personName,
-      cycle.total_weeks,
-      displayCells,
-      inventoryDeltas
-    )
+    const personCycles = allCycles
+      ?.filter((c) => c.person_id === cycle.person_id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || []
+    const idx = personCycles.findIndex((c) => c.id === cycle.id) + 1
+    const cycleNum = idx > 0 ? idx : 1
+    let endDateStr = ''
+    if (cycle.start_date) {
+      const end = new Date(cycle.start_date)
+      end.setDate(end.getDate() + cycle.total_weeks * 7)
+      endDateStr = ` (${end.getFullYear()}/${String(end.getMonth() + 1).padStart(2, '0')})`
+    }
+    const title = `${personName} - Cycle ${cycleNum}${endDateStr}`
+    exportScheduleToPDF(title, cycle.total_weeks, displayCells, inventoryDeltas)
     promptArchive()
   }
 

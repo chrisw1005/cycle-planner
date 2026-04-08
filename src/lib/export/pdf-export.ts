@@ -3,10 +3,31 @@ import autoTable from 'jspdf-autotable'
 import { formatOralInventory, getDayLabels } from '@/lib/utils'
 import type { CycleCell, DrugInventoryDelta } from '@/types'
 
+let cachedFont: string | null = null
 
-export function exportScheduleToPDF(
-  cycleName: string,
-  personName: string,
+async function loadCJKFont(doc: jsPDF): Promise<boolean> {
+  try {
+    if (!cachedFont) {
+      const res = await fetch('/fonts/NotoSansTC.ttf')
+      if (!res.ok) return false
+      const buffer = await res.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      cachedFont = btoa(binary)
+    }
+    doc.addFileToVFS('NotoSansTC.ttf', cachedFont)
+    doc.addFont('NotoSansTC.ttf', 'NotoSansTC', 'normal')
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function exportScheduleToPDF(
+  title: string,
   totalWeeks: number,
   cells: CycleCell[],
   deltas?: DrugInventoryDelta[],
@@ -18,6 +39,9 @@ export function exportScheduleToPDF(
     format: 'a4',
   })
 
+  const hasCJK = await loadCJKFont(doc)
+  const fontName = hasCJK ? 'NotoSansTC' : 'helvetica'
+
   // Build cell map
   const cellMap = new Map<string, string[]>()
   for (const cell of cells) {
@@ -27,9 +51,9 @@ export function exportScheduleToPDF(
     if (cell.display_value) cellMap.get(key)!.push(cell.display_value)
   }
 
-  // Title
+  doc.setFont(fontName)
   doc.setFontSize(16)
-  doc.text(`${personName} - ${cycleName || 'Cycle'}`, 14, 15)
+  doc.text(title, 14, 15)
 
   // Schedule table
   const headers = ['Week', ...getDayLabels(startDate)]
@@ -55,12 +79,14 @@ export function exportScheduleToPDF(
       fontSize: 9,
       halign: 'center',
       fontStyle: 'bold',
+      font: fontName,
     },
     bodyStyles: {
       fontSize: 7,
       cellPadding: 2,
       valign: 'top',
       lineWidth: 0.1,
+      font: fontName,
     },
     columnStyles: {
       0: { cellWidth: 20, halign: 'center', valign: 'middle', fontStyle: 'bold' },
@@ -75,9 +101,11 @@ export function exportScheduleToPDF(
     styles: {
       overflow: 'linebreak',
       cellWidth: 'wrap',
+      font: fontName,
     },
     margin: { left: 10, right: 10 },
     didDrawPage: () => {
+      doc.setFont(fontName)
       doc.setFontSize(7)
       doc.setTextColor(150)
       doc.text(
@@ -88,23 +116,24 @@ export function exportScheduleToPDF(
     },
   })
 
-  // Drug stats table — on a new page, using English to avoid CJK font issues
+  // Drug stats table — on a new page
   if (deltas && deltas.length > 0) {
     doc.addPage()
 
+    doc.setFont(fontName)
     doc.setFontSize(11)
     doc.setTextColor(0)
-    doc.text('Drug Stats', 14, 15)
+    doc.text(hasCJK ? '藥物用量統計' : 'Drug Stats', 14, 15)
 
-    const statsHeaders = ['Drug', 'Needed']
+    const statsHeaders = hasCJK ? ['藥物', '需求量'] : ['Drug', 'Needed']
     const statsBody = deltas.map((d) => {
       const isOral = d.category === 'Oral' || d.category === 'PCT'
       const isE3D = d.ester_type === 'E3D'
       const needed = isOral
-        ? `${Math.round(d.needed_ml)} tabs (${d.needed_vials} box)`
+        ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
         : isE3D
-          ? `${d.needed_vials} vials`
-          : `${d.needed_ml} ml (${d.needed_vials} vials)`
+          ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
+          : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`
       return [d.drug_name, needed]
     })
 
@@ -119,19 +148,24 @@ export function exportScheduleToPDF(
         fontSize: 8,
         halign: 'center',
         fontStyle: 'bold',
+        font: fontName,
       },
       bodyStyles: {
         fontSize: 8,
         cellPadding: 2,
+        font: fontName,
       },
       columnStyles: {
         0: { cellWidth: 40 },
         1: { cellWidth: 60, halign: 'right' },
+      },
+      styles: {
+        font: fontName,
       },
       margin: { left: 10, right: 10 },
       tableWidth: 100,
     })
   }
 
-  doc.save(`${personName}_${cycleName || 'cycle'}.pdf`)
+  doc.save(`${title.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`)
 }
