@@ -75,13 +75,9 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
 
   // Convert generated cells to CycleCell-like objects for the grid
   const displayCells: CycleCell[] = useMemo(() => {
-    // Build a set of moved-away sources and a list of moved-to targets
-    const movedSourceKeys = new Set<string>()
+    // Build moved-to targets (copies of source cells at new positions)
     const movedTargets: CycleCell[] = []
-
     for (const move of localMoves) {
-      movedSourceKeys.add(`${move.cycleDrugId}-${move.fromWeek}-${move.fromDay}`)
-      // Find the source cell to copy its display info
       const sourceCell = generatedCells.find(
         (c) => c.cycle_drug_id === move.cycleDrugId && c.week_number === move.fromWeek && c.day_of_week === move.fromDay
       )
@@ -105,7 +101,6 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       const key = `${cell.week_number}-${cell.day_of_week}`
       const override = localOverrides.get(`${key}-${cell.cycle_drug_id}`)
       const skipKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
-      const wasMovedAway = movedSourceKeys.has(skipKey)
       return {
         id: `gen-${i}`,
         cycle_id: id,
@@ -114,8 +109,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
         day_of_week: cell.day_of_week,
         display_value: override?.value || cell.display_value,
         ml_amount: override?.ml ?? cell.ml_amount,
-        is_manual_override: cell.is_manual_override || !!override || wasMovedAway,
-        is_skipped: wasMovedAway || activeSkips.has(skipKey),
+        is_manual_override: cell.is_manual_override || !!override,
+        is_skipped: activeSkips.has(skipKey),
         created_at: '',
       }
     })
@@ -213,12 +208,19 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
     setLocalMoves((prev) => {
       const next = [...prev]
       for (const move of moves) {
-        // If this cell was already moved before, update its destination instead of adding a new entry
-        const existingIdx = next.findIndex(
+        // Check if dragging from the original source position
+        let existingIdx = next.findIndex(
           (m) => m.cycleDrugId === move.cycleDrugId && m.fromWeek === move.fromWeek && m.fromDay === move.fromDay
         )
+        // Or dragging from a previously moved-to position (re-drag)
+        if (existingIdx < 0) {
+          existingIdx = next.findIndex(
+            (m) => m.cycleDrugId === move.cycleDrugId && m.toWeek === move.fromWeek && m.toDay === move.fromDay
+          )
+        }
         if (existingIdx >= 0) {
-          next[existingIdx] = move
+          // Update destination, keep original source
+          next[existingIdx] = { ...next[existingIdx], toWeek: move.toWeek, toDay: move.toDay }
         } else {
           next.push(move)
         }
