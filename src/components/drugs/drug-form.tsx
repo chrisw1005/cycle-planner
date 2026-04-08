@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useDrugTemplates, useBrandSuggestions } from '@/hooks/use-drugs'
 import { deleteDrugImage } from '@/lib/supabase/storage'
 import { Button } from '@/components/ui/button'
@@ -187,27 +187,14 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
               </div>
 
               {/* Brand */}
-              <div className="space-y-2">
-                <Label htmlFor="brand">廠牌</Label>
-                <Input
-                  id="brand"
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  placeholder="e.g. Alpha Pharma"
-                  list="brand-suggestions"
-                />
-                <datalist id="brand-suggestions">
-                  {[...new Set([
-                    ...(existingBrands || []),
-                    ...(selectedTemplate?.brand_names || []),
-                  ])].map(b => (
-                    <option key={b} value={b} />
-                  ))}
-                </datalist>
-                <p className="text-xs text-muted-foreground">
-                  選填，建議從清單中選擇以保持名稱一致性
-                </p>
-              </div>
+              <BrandInput
+                value={brand}
+                onChange={setBrand}
+                suggestions={[...new Set([
+                  ...(existingBrands || []),
+                  ...(selectedTemplate?.brand_names || []),
+                ])]}
+              />
 
               {/* Concentration */}
               <div className="space-y-2">
@@ -346,5 +333,55 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+function BrandInput({ value, onChange, suggestions }: { value: string; onChange: (v: string) => void; suggestions: string[] }) {
+  const [focused, setFocused] = useState(false)
+
+  const filtered = useMemo(() => {
+    if (!value) return suggestions
+    const lower = value.toLowerCase()
+    return suggestions.filter(s => s.toLowerCase().includes(lower))
+  }, [value, suggestions])
+
+  const showList = focused && filtered.length > 0
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="brand">廠牌</Label>
+      <div className="relative">
+        <Input
+          id="brand"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          placeholder="e.g. Alpha Pharma"
+          autoComplete="off"
+        />
+        {showList && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-40 overflow-y-auto">
+            {filtered.map(b => (
+              <button
+                key={b}
+                type="button"
+                className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  onChange(b)
+                  setFocused(false)
+                }}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        選填，建議從清單中選擇以保持名稱一致性
+      </p>
+    </div>
   )
 }
