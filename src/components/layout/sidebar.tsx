@@ -13,10 +13,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { DrugGuideModal } from '@/components/guide/drug-guide-modal'
 
 const navigation = [
   { name: '總覽', href: '/', icon: LayoutDashboard },
@@ -33,6 +35,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { user, isAdmin, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   return (
     <aside
@@ -112,6 +115,20 @@ export function Sidebar() {
         )}
       </nav>
 
+      {/* Guide */}
+      <div className="border-t border-border px-2 py-2">
+        <button
+          onClick={() => setGuideOpen(true)}
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors w-full',
+            'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+        >
+          <BookOpen className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>藥物指南</span>}
+        </button>
+      </div>
+
       {/* User */}
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2">
@@ -135,6 +152,7 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
+      <DrugGuideModal open={guideOpen} onOpenChange={setGuideOpen} />
     </aside>
   )
 }
