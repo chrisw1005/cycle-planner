@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Drug } from '@/types'
 
 interface DrugSelectorProps {
@@ -151,12 +151,26 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {drugs?.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} ({d.primary_category}{d.ester_type ? ` - ${d.ester_type === 'Long' ? '長效' : d.ester_type === 'Short' ? '短效' : 'E3D'}` : ''})
-                    {d.inventory_count <= 1 ? ' ⚠️' : ''}
-                  </SelectItem>
-                ))}
+                {(() => {
+                  const grouped = new Map<string, Drug[]>()
+                  for (const d of drugs || []) {
+                    const key = d.primary_category
+                    if (!grouped.has(key)) grouped.set(key, [])
+                    grouped.get(key)!.push(d)
+                  }
+                  const categoryLabels: Record<string, string> = { Injectable: '注射劑', Oral: '口服', PCT: 'PCT' }
+                  return Array.from(grouped.entries()).map(([cat, items]) => (
+                    <SelectGroup key={cat}>
+                      <SelectLabel>{categoryLabels[cat] || cat}</SelectLabel>
+                      {items.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}{d.ester_type ? ` (${d.ester_type === 'Long' ? '長效' : d.ester_type === 'Short' ? '短效' : 'E3D'})` : ''}
+                          {d.inventory_count <= 1 ? ' ⚠️' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))
+                })()}
               </SelectContent>
             </Select>
           </div>
