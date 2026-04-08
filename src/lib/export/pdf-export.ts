@@ -80,7 +80,7 @@ export async function exportScheduleToPDF(
   }
 
   const fontSize = 8
-  const lineHeight = fontSize * 0.4 // mm per line (approx)
+  const lineHeight = fontSize * 0.35 // mm per line
   const padding = 2
 
   autoTable(doc, {
@@ -131,23 +131,25 @@ export async function exportScheduleToPDF(
       const xRight = data.cell.x + data.cell.width - padding
       let y = data.cell.y + padding + fontSize * 0.35 // baseline offset
 
-      doc.setFont(fontName, 'normal')
       doc.setFontSize(fontSize)
 
       for (const entry of entries) {
         const parts = splitDrugEntry(entry)
         if (parts) {
-          // Drug name — dark, left aligned
+          // Drug name — bold dark, left aligned
+          doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(parts[0], x, y)
-          // Dose — light, right aligned
-          doc.setTextColor(140, 140, 140)
+          // Dose — normal lighter, right aligned
+          doc.setFont(fontName, 'normal', 'normal')
+          doc.setTextColor(130, 130, 130)
           doc.text(parts[1], xRight, y, { align: 'right' })
         } else {
+          doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(entry, x, y)
         }
-        y += lineHeight + fontSize * 0.5
+        y += lineHeight + fontSize * 0.32
       }
     },
     didDrawPage: () => {

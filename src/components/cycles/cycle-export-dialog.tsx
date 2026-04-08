@@ -30,7 +30,6 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
 
   const displayCells: CycleCell[] = useMemo(() => {
     if (!cycle?.cycle_drugs) return []
-    if (savedCells && savedCells.length > 0) return savedCells
     const overrides = savedCells?.filter((c) => c.is_manual_override || c.is_skipped) || []
     const generated = generateAllCells(cycle.cycle_drugs as any, cycle.total_weeks, overrides)
     return generated.map((cell, i) => ({
