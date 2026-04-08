@@ -25,7 +25,8 @@ export default function DashboardPage() {
   const { data: globalDeficits } = useGlobalInventoryDeficits()
   const [lowStockThreshold] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('lowStockThreshold') || '1') || 1
+      const saved = parseInt(localStorage.getItem('lowStockThreshold') ?? '')
+      return isNaN(saved) ? 1 : saved
     }
     return 1
   })

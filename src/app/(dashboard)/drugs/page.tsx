@@ -31,7 +31,8 @@ export default function DrugsPage() {
   const [search, setSearch] = useState('')
   const [lowStockThreshold, setLowStockThreshold] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('lowStockThreshold') || '1') || 1
+      const saved = parseInt(localStorage.getItem('lowStockThreshold') ?? '')
+      return isNaN(saved) ? 1 : saved
     }
     return 1
   })
