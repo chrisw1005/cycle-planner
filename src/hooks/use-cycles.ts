@@ -147,6 +147,22 @@ export function useAddCycleDrug() {
   })
 }
 
+export function useUpdateCycleDrug() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, cycle_id, ...updates }: { id: string; cycle_id: string; start_week?: number; end_week?: number }) => {
+      const { data, error } = await supabase.from('cycle_drugs').update(updates).eq('id', id).select('*, drug:drugs(*)').single()
+      if (error) throw error
+      return { ...data, cycle_id }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['cycles', data.cycle_id] })
+      queryClient.invalidateQueries({ queryKey: ['cycle-cells', data.cycle_id] })
+    },
+    onError: (error) => toast.error('更新失敗', { description: error.message }),
+  })
+}
+
 export function useRemoveCycleDrug() {
   const queryClient = useQueryClient()
   return useMutation({

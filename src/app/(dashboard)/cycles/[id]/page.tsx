@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState, useMemo, useCallback } from 'react'
-import { useCycle, useCycleCells, useAddCycleDrug, useRemoveCycleDrug, useSaveCycleCells, useUpdateCycle, useUpdateCycleStatus, useDeleteCycle } from '@/hooks/use-cycles'
+import { useCycle, useCycleCells, useAddCycleDrug, useRemoveCycleDrug, useUpdateCycleDrug, useSaveCycleCells, useUpdateCycle, useUpdateCycleStatus, useDeleteCycle } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { useAuth } from '@/hooks/use-auth'
 import { ScheduleGrid } from '@/components/cycles/schedule-grid'
@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { statusColors, statusLabels } from '@/lib/constants/cycle-status'
 import type { CycleStatus, CycleCell } from '@/types'
+import type { OverlapReplaceOps } from '@/components/cycles/drug-selector'
 
 export default function CycleBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -31,6 +32,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const { data: savedCells } = useCycleCells(id)
   const addCycleDrug = useAddCycleDrug()
   const removeCycleDrug = useRemoveCycleDrug()
+  const updateCycleDrug = useUpdateCycleDrug()
   const saveCells = useSaveCycleCells()
   const updateCycle = useUpdateCycle()
   const updateStatus = useUpdateCycleStatus()
@@ -42,6 +44,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const [drugSelectorOpen, setDrugSelectorOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [weekChangeDialogOpen, setWeekChangeDialogOpen] = useState(false)
+  const [pendingWeekDelta, setPendingWeekDelta] = useState(0)
   const [localOverrides, setLocalOverrides] = useState<Map<string, { value: string; ml: number | null }>>(new Map())
   const [localSkips, setLocalSkips] = useState<Set<string> | null>(null)
   const [localNotes, setLocalNotes] = useState<string | null>(null)
@@ -118,6 +122,35 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
     })
   }, [id, addCycleDrug, cycle, updateCycle])
 
+  const handleReplaceDrug = useCallback(async (ops: OverlapReplaceOps) => {
+    // Remove fully covered entries
+    for (const removeId of ops.toRemove) {
+      await removeCycleDrug.mutateAsync({ id: removeId, cycle_id: id })
+    }
+    // Trim partially overlapping entries
+    for (const update of ops.toUpdate) {
+      await updateCycleDrug.mutateAsync({ id: update.id, cycle_id: id, start_week: update.start_week, end_week: update.end_week })
+    }
+    // Create split tail entries
+    for (const create of ops.toCreate) {
+      await addCycleDrug.mutateAsync({ cycle_id: id, ...create })
+    }
+    // Add the new drug
+    const data = ops.newData
+    if (cycle && data.end_week > cycle.total_weeks) {
+      updateCycle.mutate({ id, total_weeks: data.end_week })
+    }
+    addCycleDrug.mutate({
+      cycle_id: id,
+      ...data,
+      weekly_dose: data.weekly_dose || undefined,
+      daily_dose: data.daily_dose || undefined,
+      injection_ml: data.injection_ml || undefined,
+      total_injections: data.total_injections || undefined,
+      schedule_mode: data.schedule_mode || undefined,
+    })
+  }, [id, removeCycleDrug, updateCycleDrug, addCycleDrug, cycle, updateCycle])
+
   const handleSave = useCallback(() => {
     const cellsToSave = displayCells.map((c) => ({
       cycle_id: id,
@@ -148,8 +181,36 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const handleWeekChange = useCallback((delta: number) => {
     if (!cycle) return
     const newWeeks = Math.max(1, cycle.total_weeks + delta)
+
+    if (delta < 0 && cycle.cycle_drugs) {
+      const affected = cycle.cycle_drugs.filter(
+        (cd) => cd.start_week > newWeeks || cd.end_week > newWeeks
+      )
+      if (affected.length > 0) {
+        setPendingWeekDelta(delta)
+        setWeekChangeDialogOpen(true)
+        return
+      }
+    }
+
     updateCycle.mutate({ id, total_weeks: newWeeks })
   }, [cycle, id, updateCycle])
+
+  const handleConfirmWeekChange = useCallback(async () => {
+    if (!cycle) return
+    const newWeeks = Math.max(1, cycle.total_weeks + pendingWeekDelta)
+
+    for (const cd of cycle.cycle_drugs || []) {
+      if (cd.start_week > newWeeks) {
+        await removeCycleDrug.mutateAsync({ id: cd.id, cycle_id: id })
+      } else if (cd.end_week > newWeeks) {
+        await updateCycleDrug.mutateAsync({ id: cd.id, cycle_id: id, end_week: newWeeks })
+      }
+    }
+
+    updateCycle.mutate({ id, total_weeks: newWeeks })
+    setWeekChangeDialogOpen(false)
+  }, [cycle, pendingWeekDelta, id, removeCycleDrug, updateCycleDrug, updateCycle])
 
   const handleDelete = useCallback(() => {
     deleteCycle.mutate(id, {
@@ -386,8 +447,20 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
         open={drugSelectorOpen}
         onClose={() => setDrugSelectorOpen(false)}
         onAdd={handleAddDrug}
+        onReplace={handleReplaceDrug}
         totalWeeks={cycle.total_weeks}
-        existingDrugIds={cycle.cycle_drugs?.map(cd => cd.drug_id) || []}
+        existingCycleDrugs={cycle.cycle_drugs?.map(cd => ({
+          id: cd.id,
+          drug_id: cd.drug_id,
+          start_week: cd.start_week,
+          end_week: cd.end_week,
+          weekly_dose: cd.weekly_dose,
+          daily_dose: cd.daily_dose,
+          injection_ml: cd.injection_ml,
+          total_injections: cd.total_injections,
+          schedule_mode: cd.schedule_mode,
+          drug: cd.drug ? { name: cd.drug.name } : null,
+        })) || []}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -410,6 +483,33 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
             >
               {deleteCycle.isPending ? '刪除中...' : '確認刪除'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Week Change Confirmation Dialog */}
+      <Dialog open={weekChangeDialogOpen} onOpenChange={setWeekChangeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認縮減週數</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                if (!cycle) return null
+                const newWeeks = Math.max(1, cycle.total_weeks + pendingWeekDelta)
+                const toRemove = cycle.cycle_drugs?.filter(cd => cd.start_week > newWeeks) || []
+                const toTrim = cycle.cycle_drugs?.filter(cd => cd.start_week <= newWeeks && cd.end_week > newWeeks) || []
+                return (
+                  <>
+                    {toRemove.length > 0 && <span className="block">將移除：{toRemove.map(cd => `${cd.drug?.name} (W${cd.start_week}-${cd.end_week})`).join('、')}</span>}
+                    {toTrim.length > 0 && <span className="block">將縮減：{toTrim.map(cd => `${cd.drug?.name} (W${cd.end_week} → W${newWeeks})`).join('、')}</span>}
+                  </>
+                )
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWeekChangeDialogOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleConfirmWeekChange}>確認縮減</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
