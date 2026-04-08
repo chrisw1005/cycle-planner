@@ -91,7 +91,7 @@ export interface Drug {
 export type DrugFormData = Omit<Drug, 'id' | 'created_at' | 'updated_at' | 'template'>
 
 // ==================== Cycles ====================
-export type CycleStatus = 'Scheduled' | 'Planned' | 'Completed' | 'Archived'
+export type CycleStatus = 'Scheduled' | 'Planned' | 'Testing' | 'Completed' | 'Archived'
 
 export interface Cycle {
   id: string

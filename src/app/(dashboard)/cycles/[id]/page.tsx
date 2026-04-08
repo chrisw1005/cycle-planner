@@ -126,18 +126,21 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
     return [...baseCells, ...movedTargets]
   }, [generatedCells, localOverrides, activeSkips, localMoves, id])
 
-  // Inventory deltas (adjusted for skipped cells)
+  // Inventory deltas (adjusted for skipped cells) — Testing cycles don't affect inventory
+  const isTesting = cycle?.status === 'Testing'
   const inventoryDeltas = useMemo(() => {
-    if (!cycle?.cycle_drugs) return []
+    if (!cycle?.cycle_drugs || isTesting) return []
     const base = calculateInventoryDeltas(cycle.cycle_drugs as any, allDrugs as any)
     return adjustDeltasForSkippedCells(base, displayCells, cycle.cycle_drugs as any)
-  }, [cycle, allDrugs, displayCells])
+  }, [cycle, allDrugs, displayCells, isTesting])
 
   const inventoryDeficitsMap = useMemo(() => {
     const map = new Map<string, number>()
-    inventoryDeltas.forEach((d) => map.set(d.drug_id, d.deficit))
+    if (!isTesting) {
+      inventoryDeltas.forEach((d) => map.set(d.drug_id, d.deficit))
+    }
     return map
-  }, [inventoryDeltas])
+  }, [inventoryDeltas, isTesting])
 
   // Handlers
   const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; start_week: number; end_week: number }) => {
@@ -361,6 +364,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Planned">排制中</SelectItem>
+                  <SelectItem value="Testing">測試中</SelectItem>
                   <SelectItem value="Completed">已完成</SelectItem>
                 </SelectContent>
               </Select>
@@ -386,7 +390,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                     封存課表
                   </DropdownMenuItem>
                 )}
-                {(cycle.status === 'Scheduled' || cycle.status === 'Planned') && (
+                {(cycle.status === 'Scheduled' || cycle.status === 'Planned' || cycle.status === 'Testing') && (
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => setDeleteDialogOpen(true)}

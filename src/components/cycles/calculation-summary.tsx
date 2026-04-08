@@ -25,7 +25,6 @@ export function CalculationSummary({ deltas }: CalculationSummaryProps) {
               <TableRow>
                 <TableHead>藥物</TableHead>
                 <TableHead className="text-right">需求量</TableHead>
-                <TableHead className="text-right">需求數</TableHead>
                 <TableHead className="text-right">現有庫存</TableHead>
                 <TableHead className="text-right">差異</TableHead>
               </TableRow>
@@ -39,10 +38,11 @@ export function CalculationSummary({ deltas }: CalculationSummaryProps) {
                   <TableRow key={d.drug_id}>
                     <TableCell className="font-medium">{d.drug_name}</TableCell>
                     <TableCell className="text-right">
-                      {isOral ? `${Math.round(d.needed_ml)} 顆` : isE3D ? `${d.needed_vials} 瓶/劑` : `${d.needed_ml} ml`}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isOral ? formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box) : `${d.needed_vials} ${unitLabel}`}
+                      {isOral
+                        ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+                        : isE3D
+                          ? `${d.needed_vials} 瓶/劑`
+                          : `${d.needed_ml} ml (${d.needed_vials} 瓶)`}
                     </TableCell>
                     <TableCell className="text-right">
                       {isOral
