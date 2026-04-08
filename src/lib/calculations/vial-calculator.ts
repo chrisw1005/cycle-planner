@@ -120,7 +120,13 @@ export function calculateInventoryDeltas(
     }
   }
 
-  return Array.from(drugMap.entries()).map(([drugId, { totalAmount, drug }]) => {
+  // Sort: Injectable → Oral → PCT
+  const categoryOrder: Record<string, number> = { Injectable: 0, Oral: 1, PCT: 2 }
+  const sortedEntries = Array.from(drugMap.entries()).sort(
+    ([, a], [, b]) => (categoryOrder[a.drug.primary_category] ?? 9) - (categoryOrder[b.drug.primary_category] ?? 9)
+  )
+
+  return sortedEntries.map(([drugId, { totalAmount, drug }]) => {
     const isE3D = drug.ester_type === 'E3D'
     const isOral = !isE3D && (drug.primary_category === 'Oral' || drug.primary_category === 'PCT')
 

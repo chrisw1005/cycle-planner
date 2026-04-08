@@ -210,7 +210,13 @@ export function generateAllCells(
 ): CellData[] {
   const allCells: CellData[] = []
 
-  for (const cd of cycleDrugs) {
+  // Sort: Injectable → Oral → PCT (AI/SERM/Other)
+  const sorted = [...cycleDrugs].sort((a, b) => {
+    const order: Record<string, number> = { Injectable: 0, Oral: 1, PCT: 2 }
+    return (order[a.drug.primary_category] ?? 9) - (order[b.drug.primary_category] ?? 9)
+  })
+
+  for (const cd of sorted) {
     const generated = generateCellsForDrug(cd, totalWeeks)
     allCells.push(...generated)
   }
