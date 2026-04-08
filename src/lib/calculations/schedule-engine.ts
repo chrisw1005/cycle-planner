@@ -101,6 +101,26 @@ export function generateCellsForDrug(
           }
         }
       }
+    } else if (drug.ester_type === 'E3D' && cycleDrug.injection_ml && cycleDrug.total_injections) {
+      // Rule D: E3D — every 3 days, limited by total injection count (e.g. HCG)
+      const mlPerInjection = roundMl(cycleDrug.injection_ml)
+      const absStart = (cycleDrug.start_week - 1) * 7 + 1
+      let count = 0
+
+      for (let absDay = absStart; count < cycleDrug.total_injections; absDay += 3) {
+        const week = Math.ceil(absDay / 7)
+        if (week > totalWeeks) break
+        const day = ((absDay - 1) % 7) + 1
+        cells.push({
+          cycle_drug_id: cycleDrug.id,
+          week_number: week,
+          day_of_week: day,
+          display_value: `${shortName(drug.name, drug.concentration)} ${mlPerInjection}ml`,
+          ml_amount: mlPerInjection,
+          is_manual_override: false,
+        })
+        count++
+      }
     }
   } else if (
     (drug.primary_category === 'Oral' || drug.primary_category === 'PCT') &&
@@ -177,6 +197,8 @@ export function getExpectedMl(
     return roundMl(cycleDrug.weekly_dose / 2 / drug.concentration)
   } else if (drug.ester_type === 'Short') {
     return roundMl(cycleDrug.weekly_dose / 3.5 / drug.concentration)
+  } else if (drug.ester_type === 'E3D' && cycleDrug.injection_ml) {
+    return roundMl(cycleDrug.injection_ml)
   }
   return null
 }

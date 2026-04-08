@@ -30,7 +30,7 @@ interface DrugFormProps {
 
 const primaryCategories: PrimaryCategory[] = ['Injectable', 'Oral', 'PCT']
 const subCategories: SubCategory[] = ['Test', 'Nor-19', 'DHT', 'AI', 'SERM', 'Prolactin', 'Other']
-const esterTypes: EsterType[] = ['Long', 'Short']
+const esterTypes: EsterType[] = ['Long', 'Short', 'E3D']
 
 export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
   const { data: templates } = useDrugTemplates()
@@ -271,6 +271,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                       <SelectItem value="none">無</SelectItem>
                       <SelectItem value="Long">Long（長效 — 每週 2 次）</SelectItem>
                       <SelectItem value="Short">Short（短效 — 每隔一天）</SelectItem>
+                      <SelectItem value="E3D">E3D（每三天 — HCG）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

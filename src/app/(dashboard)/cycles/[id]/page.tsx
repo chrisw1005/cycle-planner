@@ -83,12 +83,14 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   }, [inventoryDeltas])
 
   // Handlers
-  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; start_week: number; end_week: number }) => {
+  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; start_week: number; end_week: number }) => {
     addCycleDrug.mutate({
       cycle_id: id,
       ...data,
       weekly_dose: data.weekly_dose || undefined,
       daily_dose: data.daily_dose || undefined,
+      injection_ml: data.injection_ml || undefined,
+      total_injections: data.total_injections || undefined,
     })
   }, [id, addCycleDrug])
 
@@ -324,6 +326,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
         onClose={() => setDrugSelectorOpen(false)}
         onAdd={handleAddDrug}
         totalWeeks={cycle.total_weeks}
+        existingDrugIds={cycle.cycle_drugs?.map(cd => cd.drug_id) || []}
       />
 
       {/* Delete Confirmation Dialog */}

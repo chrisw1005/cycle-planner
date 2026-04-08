@@ -54,7 +54,7 @@ export type PersonFormData = Omit<Person, 'id' | 'created_at' | 'updated_at' | '
 // ==================== Drugs ====================
 export type PrimaryCategory = 'Injectable' | 'Oral' | 'PCT'
 export type SubCategory = 'Test' | 'Nor-19' | 'DHT' | 'AI' | 'SERM' | 'Prolactin' | 'Other'
-export type EsterType = 'Long' | 'Short'
+export type EsterType = 'Long' | 'Short' | 'E3D'
 
 export interface DrugTemplate {
   id: string
@@ -116,6 +116,8 @@ export interface CycleDrug {
   drug_id: string
   weekly_dose: number | null
   daily_dose: number | null
+  injection_ml: number | null       // E3D only: ml per injection
+  total_injections: number | null   // E3D only: total number of injections
   start_week: number
   end_week: number
   created_at: string
