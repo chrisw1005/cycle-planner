@@ -16,6 +16,7 @@ import { ProlactinManagementTab } from './tabs/prolactin-management-tab'
 import { DrugStackingTab } from './tabs/drug-stacking-tab'
 import { CycleSupportTab } from './tabs/cycle-support-tab'
 import { HalfLivesTab } from './tabs/half-lives-tab'
+import { ClenT3Tab } from './tabs/clen-t3-tab'
 
 interface DrugGuideModalProps {
   open: boolean
@@ -28,6 +29,7 @@ const tabs = [
   { value: 'pct-protocols', label: 'PCT 療程' },
   { value: 'estrogen-mgmt', label: '雌激素管理' },
   { value: 'prolactin-mgmt', label: '泌乳素管理' },
+  { value: 'clen-t3', label: 'Clen / T3' },
   { value: 'drug-stacking', label: '藥物搭配' },
   { value: 'cycle-support', label: '週期輔助' },
   { value: 'half-lives', label: '半衰期' },
@@ -69,6 +71,9 @@ export function DrugGuideModal({ open, onOpenChange }: DrugGuideModalProps) {
           </TabsContent>
           <TabsContent value="prolactin-mgmt">
             <ProlactinManagementTab />
+          </TabsContent>
+          <TabsContent value="clen-t3">
+            <ClenT3Tab />
           </TabsContent>
           <TabsContent value="drug-stacking">
             <DrugStackingTab />

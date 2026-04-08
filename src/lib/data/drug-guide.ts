@@ -312,13 +312,29 @@ export const pctTimingTable: PCTTimingEntry[] = [
 
 export const pctProtocols: PCTProtocol[] = [
   {
-    name: 'Nolvadex 單獨方案',
-    suitability: '輕度至中度週期',
+    name: 'Nolvadex 標準方案（20mg 平坦劑量）',
+    suitability: '輕度週期（Test-only, ≤12 週）',
     drugs: [
-      { name: 'Nolvadex (Tamoxifen)', dosage: '20 mg/天', duration: '第 1-2 週' },
-      { name: 'Nolvadex (Tamoxifen)', dosage: '10 mg/天', duration: '第 3-4 週' },
+      { name: 'Nolvadex (Tamoxifen)', dosage: '20 mg/天', duration: '共 4 週' },
     ],
-    notes: ['Nolvadex 副作用較 Clomid 少', '最常用的 PCT 方案'],
+    notes: [
+      'Nolvadex 半衰期長（5-7 天），20mg 已接近最大 SERM 效果',
+      '副作用較 Clomid 少',
+      '新的社群共識傾向平坦 20mg 而非 40/20 遞減',
+    ],
+  },
+  {
+    name: 'Nolvadex 加強方案（40→20mg）',
+    suitability: '中度週期',
+    drugs: [
+      { name: 'Nolvadex (Tamoxifen)', dosage: '40 mg/天', duration: '第 1-2 週' },
+      { name: 'Nolvadex (Tamoxifen)', dosage: '20 mg/天', duration: '第 3-6 週' },
+    ],
+    notes: [
+      '傳統方案，廣泛使用',
+      '40mg 初始劑量可加速血藥濃度達到穩態',
+      '中度以上週期建議延長至 6 週',
+    ],
   },
   {
     name: 'Clomid 單獨方案',
@@ -333,23 +349,29 @@ export const pctProtocols: PCTProtocol[] = [
     name: 'Nolvadex + Clomid 聯合方案',
     suitability: '中度至重度週期',
     drugs: [
-      { name: 'Nolvadex', dosage: '20 mg/天', duration: '共 4 週' },
-      { name: 'Clomid', dosage: '50 mg/天 → 25 mg/天', duration: '前 2 週 50mg → 後 2 週 25mg' },
+      { name: 'Nolvadex', dosage: '20 mg/天', duration: '共 6 週' },
+      { name: 'Clomid', dosage: '25-50 mg/天', duration: '共 4-6 週' },
     ],
-    notes: ['適合較重的週期', '兩者作用機制互補'],
+    notes: [
+      '適合較重的週期或含 19-nor 化合物的週期',
+      '兩者作用機制互補',
+      '含 Deca/Tren 的週期建議至少 6 週 PCT',
+      '19-nor 代謝物可在體內殘留數月，恢復較慢',
+    ],
   },
   {
     name: 'Dr. Scally Power PCT（黃金標準）',
     suitability: '重度/長期週期',
     drugs: [
-      { name: 'HCG', dosage: '2000 IU EOD', duration: '共 20 天（10 劑）' },
-      { name: 'Clomid', dosage: '100 mg/天（50mg 早 + 50mg 晚）', duration: '共 30 天' },
+      { name: 'HCG', dosage: '2500 IU EOD', duration: '共 16 天（8 劑）' },
+      { name: 'Clomid', dosage: '50 mg/天', duration: '共 30 天' },
       { name: 'Nolvadex', dosage: '20 mg/天', duration: '共 45 天' },
     ],
     notes: [
-      '三者同時使用，HCG 階段為前 20 天，SERM 持續至完成',
+      '三者同時使用，HCG 階段為前 16 天，SERM 持續至完成',
       'Dr. Scally 臨床研究：19 名男性中 100% 在 45 天內恢復睪酮',
-      '適合長期或高劑量週期',
+      '原始方案 Clomid 為 100mg，現社群多建議降至 50mg 以減少副作用',
+      '適合長期或高劑量週期，總 PCT 時長約 6-7 週',
     ],
   },
 ]
@@ -365,7 +387,10 @@ export const hcgOnCycleProtocol = {
   ],
   warnings: [
     '不要在 PCT 期間使用 HCG（會透過負反饋抑制 LH）',
-    '單次劑量勿超過 1000 IU（Leydig 細胞脫敏風險）',
+    'On-cycle 維護建議 250-500 IU/次；高於 500 IU 會增加芳香化（轉換為雌激素）',
+    '短期高劑量 PCT 方案（如 Scally 2500 IU EOD x 16 天）有臨床文獻支持',
+    '臨床生育治療常使用 1500-5000 IU 2-3x/週，持續數月',
+    '長期持續高劑量可能有 Leydig 細胞 LH 受體下調風險，但人體證據不如動物研究明確',
   ],
   importantNotes: [
     '務必做週期前血液檢查以建立基線',
@@ -447,6 +472,93 @@ export const aiKeyPoints = [
   'Aromasin 為首選（自殺性 AI、脂質中性、無反彈）',
 ]
 
+// --- Clenbuterol & T3 Protocols ---
+
+export interface ClenProtocol {
+  name: string
+  description: string
+  schedule: string[]
+  dosageRange: { gender: string; start: string; max: string }[]
+  sideEffects: string[]
+  notes: string[]
+}
+
+export interface T3Protocol {
+  name: string
+  description: string
+  dosageRange: string
+  rampUp: string
+  maintain: string
+  taperDown: string
+  duration: string
+  notes: string[]
+}
+
+export const clenProtocols: ClenProtocol[] = [
+  {
+    name: '2 週開 / 2 週關（標準方案）',
+    description: 'Beta-2 受體在持續使用約 14 天後會下調，降低效果。交替使用可維持藥效。',
+    schedule: [
+      '第 1-2 週：Clen ON — 從低劑量開始，每 2-3 天增加 20mcg 至目標劑量',
+      '第 3-4 週：Clen OFF（或搭配 Ketotifen 1-2mg/天以上調受體）',
+      '第 5-6 週：Clen ON — 從前次最高劑量恢復',
+      '第 7-8 週：Clen OFF',
+      '可重複 4-8 週，視需要而定',
+    ],
+    dosageRange: [
+      { gender: '男性', start: '20-40 mcg/天', max: '120-140 mcg/天' },
+      { gender: '女性', start: '10-20 mcg/天', max: '80-100 mcg/天' },
+    ],
+    sideEffects: [
+      '手部震顫（最常見，通常第 3-4 天適應）',
+      '心跳加速（靜息心率應控制在 100 bpm 以下）',
+      '肌肉抽筋（補充 Taurine 3-5g/天 + 鉀）',
+      '失眠（建議早上服用）',
+      '出汗增加',
+    ],
+    notes: [
+      '不要與其他興奮劑（麻黃鹼、DMAA）合用 — 心律不整風險',
+      '每 2-3 天增加 20mcg，直到達到個人可接受的最高劑量',
+      '如果靜息心率 >100bpm 或出現嚴重震顫，應降低劑量',
+    ],
+  },
+]
+
+export const t3Protocols: T3Protocol[] = [
+  {
+    name: '標準減脂 T3 週期',
+    description: 'T3 增加基礎代謝率，加速脂肪燃燒。必須緩慢增減劑量以保護甲狀腺功能。',
+    dosageRange: '25-75 mcg/天',
+    rampUp: '從 25mcg/天開始，每 5-7 天增加 12.5-25mcg 至目標劑量',
+    maintain: '在目標劑量維持 4-6 週',
+    taperDown: '以相反順序遞減：每 5-7 天減少 12.5-25mcg，回到 25mcg 後停藥',
+    duration: '總計 6-8 週（含增減劑量期），最長 12 週',
+    notes: [
+      '不可突然停藥 — T3 會抑制 TSH，突然停藥導致暫時性甲狀腺功能低下（極度疲勞、體重增加、腦霧、怕冷、抑鬱）',
+      '緩慢遞減讓 HPT 軸（下視丘-垂體-甲狀腺）逐漸恢復',
+      '劑量 >50mcg/天 會增加肌肉分解風險 — 強烈建議同時使用 AAS（至少 TRT 劑量）以保護肌肉',
+      '保守劑量 25-50mcg 適合大多數使用者',
+      '75mcg+ 為激進劑量，肌肉流失風險顯著',
+    ],
+  },
+]
+
+export const clenT3StackProtocol = {
+  title: 'Clen + T3 聯合減脂方案',
+  description: 'Clen（Beta-2 興奮劑）與 T3（甲狀腺素）協同作用。T3 增加 Beta 受體數量，可能增強 Clen 效果。',
+  schedule: [
+    { weeks: '1-2', clen: '從 20mcg 遞增至 80-120mcg', t3: '從 25mcg 遞增至 50mcg' },
+    { weeks: '3-4', clen: 'OFF（或搭配 Ketotifen）', t3: '維持 50mcg' },
+    { weeks: '5-6', clen: 'ON（從前次最高劑量恢復）', t3: '維持 50mcg' },
+    { weeks: '7-8', clen: 'OFF', t3: '遞減 50→25→停藥' },
+  ],
+  notes: [
+    '強烈建議同時使用 AAS（至少 TRT 劑量的睪酮）以防止 T3 造成的肌肉分解',
+    '兩者都會升高心率 — 密切監測',
+    '充足水分攝取 + Taurine 3-5g/天 + 電解質補充',
+  ],
+}
+
 export const prolactinProtocols: ProlactinProtocol[] = [
   {
     drug: 'Cabergoline (Dostinex)',
@@ -496,7 +608,7 @@ export const drugInteractions: DrugInteraction[] = [
   { severity: 'caution', combo: 'Winstrol + 關節密集訓練', reason: 'Winstrol 使關節乾燥，增加受傷風險' },
   { severity: 'caution', combo: 'Clenbuterol + 興奮劑', reason: '心律不整風險（麻黃鹼、DMAA）' },
   { severity: 'caution', combo: 'T3 高劑量 >75mcg 長期', reason: '可導致肌肉流失和甲狀腺損傷' },
-  { severity: 'caution', combo: 'Trenbolone + 有氧運動', reason: 'Tren 嚴重影響心肺功能' },
+  { severity: 'caution', combo: 'Trenbolone + 高強度有氧（HIIT）', reason: 'Tren 顯著降低有氧能力（呼吸困難、心率升高）。但低強度有氧（LISS 30-45 分鐘，3-5x/週）強烈建議使用，以減輕 Tren 的心血管負面影響（血脂異常、心肌肥大、高血壓）。應使用心率監測而非配速目標來調整強度' },
   // 安全搭配
   { severity: 'safe', combo: 'Test + Deca', reason: '經典增肌：Test 基底覆蓋 Deca 可能抑制的性慾/情緒' },
   { severity: 'safe', combo: 'Test + EQ', reason: '精瘦增肌：EQ 有溫和 AI 效果' },
@@ -506,6 +618,85 @@ export const drugInteractions: DrugInteraction[] = [
   { severity: 'safe', combo: 'Test + Tren + Masteron', reason: '進階減脂三合一（需經驗豐富）' },
   { severity: 'safe', combo: '任何注射 + 短期口服 kickstart', reason: '口服 4-6 週等待注射劑生效' },
 ]
+
+// --- Multi-Compound Stacking Guidelines ---
+
+export interface MultiCompoundStack {
+  name: string
+  goal: string
+  compounds: { name: string; dosageRange: string; notes: string }[]
+  keyPoints: string[]
+}
+
+export const multiCompoundStacks: MultiCompoundStack[] = [
+  {
+    name: 'Test + EQ + Tren（進階重組/增肌）',
+    goal: '精瘦增肌或身體重組，三種不同機制協同',
+    compounds: [
+      { name: 'Testosterone E/C', dosageRange: '200-500 mg/週', notes: 'EQ 有溫和 AI 效果，如 Test 過低可能導致 E2 過低；需根據血檢調整' },
+      { name: 'Boldenone (EQ)', dosageRange: '400-600 mg/週', notes: '極慢效，需 16-20 週；其代謝物有 AI 效果' },
+      { name: 'Trenbolone Acetate', dosageRange: '200-300 mg/週', notes: 'Tren 在 200-300mg 已很有效，不需要加到很高' },
+    ],
+    keyPoints: [
+      '這是非常嚴苛的組合 — EQ 和 Tren 都對心血管負面影響大',
+      'EQ 的 AI 效果 + Tren 不芳香化 → 注意低 E2 風險，可能需要提高 Test 劑量',
+      '必須定期監測血液指標（血脂、肝腎功能、血球計數）',
+      '強烈建議 LISS 有氧 30-45 分鐘/天',
+    ],
+  },
+  {
+    name: 'Test + Deca + Dbol（經典黃金時代增肌）',
+    goal: '最大化肌肉體積增長',
+    compounds: [
+      { name: 'Testosterone E/C', dosageRange: '500 mg/週', notes: 'Test ≥ Deca 以避免「Deca Dick」— DHN 會在陰莖組織取代 DHT' },
+      { name: 'Nandrolone Decanoate (Deca)', dosageRange: '300-400 mg/週', notes: '更高劑量增加泌乳素問題' },
+      { name: 'Dianabol', dosageRange: '25-50 mg/天 x 4-6 週', notes: '作為 kickstart；Deca 和 Test E/C 需 4-6 週達到穩態' },
+    ],
+    keyPoints: [
+      'Deca 和 Dbol 都會芳香化 → 幾乎一定需要 AI',
+      '必須備有 Cabergoline（Deca 為 19-nor）',
+      'Dbol 期間必須護肝（TUDCA + NAC）',
+      '雌激素管理是此組合的最大挑戰',
+    ],
+  },
+  {
+    name: 'Test + Tren + Masteron（減脂三合一）',
+    goal: '最大化減脂和肌肉硬度',
+    compounds: [
+      { name: 'Testosterone', dosageRange: '100-200 mg/週（低劑量）', notes: '許多使用者在減脂期偏好低 Test 以減少水腫和雌激素問題' },
+      { name: 'Trenbolone Acetate', dosageRange: '200-400 mg/週', notes: '主要合成代謝來源；200-300mg 對多數人已足夠' },
+      { name: 'Masteron Propionate', dosageRange: '300-500 mg/週', notes: '硬化/外觀效果 + 溫和抗雌特性' },
+    ],
+    keyPoints: [
+      '通常全使用短酯（Test P + Tren A + Mast P）以便快速調整',
+      'Masteron 的抗雌效果可能減少 AI 需求',
+      '必須備有 Cabergoline（Tren 為 19-nor）',
+      '低 Test + Tren 方案在減脂期廣受歡迎，但部分使用者反映情緒/性慾較差',
+    ],
+  },
+]
+
+export const multiCompoundPrinciples = [
+  '使用 3+ 化合物時，個別劑量應比單獨成對使用時更低 — 副作用是疊加甚至協同的',
+  '總 mg 負載不是唯一指標；不同化合物的毒性類型也會疊加（肝毒性、心血管、腎臟）',
+  '首次使用某化合物時不應同時堆疊多種新藥 — 無法判斷哪個造成副作用',
+]
+
+export const testTrenRatioDebate = {
+  title: 'Test 與 Tren 劑量比例爭議',
+  description: '社群中最常見的辯論之一。沒有統一正確答案 — 取決於個人反應。',
+  highTest: {
+    label: 'Test 高於 Tren（如 500 Test / 300 Tren）',
+    pros: ['睪酮覆蓋正常生理功能（性慾、情緒、認知）', '較可預測的荷爾蒙環境'],
+    cons: ['更多雌激素需要管理', '可能更多水腫'],
+  },
+  lowTest: {
+    label: 'Test 低於 Tren（如 150-200 Test / 400 Tren）',
+    pros: ['減少雌激素變數，更容易管理 Tren 特定副作用', '減脂期水腫更少'],
+    cons: ['部分使用者反映情緒低落、性慾降低', '低 E2 風險'],
+  },
+  recommendation: '首次使用 Tren 應以中等 Test（300-500mg）+ 低 Tren（150-200mg）開始，評估個人反應後再調整比例。重點是 Tren 劑量盡可能保持在有效最低範圍（200-350mg/週）。',
+}
 
 export const testBaseRule = {
   title: '睪酮基底規則',
