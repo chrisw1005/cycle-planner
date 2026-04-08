@@ -111,7 +111,7 @@ export async function exportScheduleToPDF(
       fontSize,
       cellPadding: { top: 3, right: padding, bottom: 3, left: padding },
       valign: 'top',
-      lineWidth: 0.35,
+      lineWidth: 0.45,
       font: fontName,
       textColor: [200, 200, 200], // light placeholder text — overdrawn by didDrawCell
     },
