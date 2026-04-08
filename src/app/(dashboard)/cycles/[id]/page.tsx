@@ -75,9 +75,12 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
 
   // Convert generated cells to CycleCell-like objects for the grid
   const displayCells: CycleCell[] = useMemo(() => {
-    // Build moved-to targets (copies of source cells at new positions)
+    // Build set of moved-away source keys and moved-to targets
+    const movedSourceKeys = new Set<string>()
     const movedTargets: CycleCell[] = []
+
     for (const move of localMoves) {
+      movedSourceKeys.add(`${move.cycleDrugId}-${move.fromWeek}-${move.fromDay}`)
       const sourceCell = generatedCells.find(
         (c) => c.cycle_drug_id === move.cycleDrugId && c.week_number === move.fromWeek && c.day_of_week === move.fromDay
       )
@@ -97,11 +100,16 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       }
     }
 
-    const baseCells = generatedCells.map((cell, i) => {
+    // Filter out source cells that were moved away
+    const baseCells: CycleCell[] = []
+    generatedCells.forEach((cell, i) => {
+      const sourceKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
+      if (movedSourceKeys.has(sourceKey)) return
+
       const key = `${cell.week_number}-${cell.day_of_week}`
       const override = localOverrides.get(`${key}-${cell.cycle_drug_id}`)
       const skipKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
-      return {
+      baseCells.push({
         id: `gen-${i}`,
         cycle_id: id,
         cycle_drug_id: cell.cycle_drug_id,
@@ -112,7 +120,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
         is_manual_override: cell.is_manual_override || !!override,
         is_skipped: activeSkips.has(skipKey),
         created_at: '',
-      }
+      })
     })
 
     return [...baseCells, ...movedTargets]
