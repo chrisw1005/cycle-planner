@@ -4,11 +4,12 @@ import { cn } from '@/lib/utils'
 interface InventoryBadgeProps {
   count: number
   unit?: string
+  threshold?: number
   className?: string
 }
 
-export function InventoryBadge({ count, unit, className }: InventoryBadgeProps) {
-  const status = count === 0 ? 'empty' : count <= 1 ? 'low' : 'ok'
+export function InventoryBadge({ count, unit, threshold = 1, className }: InventoryBadgeProps) {
+  const status = count === 0 ? 'empty' : count <= threshold ? 'low' : 'ok'
   const suffix = unit || ''
 
   return (

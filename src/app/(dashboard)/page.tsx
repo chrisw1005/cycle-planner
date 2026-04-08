@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useDrugs } from '@/hooks/use-drugs'
+import { useGlobalInventoryDeficits } from '@/hooks/use-inventory-deficits'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { statusLabels } from '@/lib/constants/cycle-status'
 import { Users, Pill, Calendar, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
@@ -18,6 +21,9 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { data: allDrugs } = useDrugs()
+  const { data: globalDeficits } = useGlobalInventoryDeficits()
+
   const [stats, setStats] = useState<DashboardStats>({
     totalPeople: 0,
     totalDrugs: 0,
@@ -108,9 +114,11 @@ export default function DashboardPage() {
                 <p className="text-3xl font-bold">{card.value}</p>
                 {card.title === '課表總數' && stats.totalCycles > 0 && (() => {
                   const inProgress = (stats.cyclesByStatus['Scheduled'] || 0) + (stats.cyclesByStatus['Planned'] || 0)
+                  const testing = stats.cyclesByStatus['Testing'] || 0
                   const completed = stats.cyclesByStatus['Completed'] || 0
                   const items = [
                     { label: '排制中', count: inProgress, color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+                    { label: '測試中', count: testing, color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
                     { label: '已完成', count: completed, color: 'bg-green-500/10 text-green-500 border-green-500/20' },
                   ].filter(i => i.count > 0)
                   if (items.length === 0) return null
@@ -131,24 +139,60 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {stats.lowStockDrugs > 0 && (
-        <Card className="border-amber-500/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-500">
-              <AlertTriangle className="h-5 w-5" />
-              庫存不足提醒
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              有 {stats.lowStockDrugs} 項藥品庫存不足，
-              <Link href="/drugs?filter=low_stock" className="text-primary underline">
-                前往查看
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {(() => {
+        const threshold = typeof window !== 'undefined' ? parseInt(localStorage.getItem('lowStockThreshold') || '1') || 1 : 1
+        const lowStockCount = allDrugs?.filter(d => d.inventory_count <= threshold).length || stats.lowStockDrugs
+        const deficitDrugs = globalDeficits?.filter(d => d.deficit < 0) || []
+
+        return (
+          <>
+            {lowStockCount > 0 && (
+              <Card className="border-amber-500/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-500">
+                    <AlertTriangle className="h-5 w-5" />
+                    庫存不足提醒
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    有 {lowStockCount} 項藥品庫存不足，
+                    <Link href="/drugs" className="text-primary underline">
+                      前往查看
+                    </Link>
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {deficitDrugs.length > 0 && (
+              <Card className="border-red-500/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-500">
+                    <AlertTriangle className="h-5 w-5" />
+                    課表需求缺口
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    以下藥品在所有進行中課表（排除測試中）的總需求超過現有庫存：
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {deficitDrugs.map((d) => {
+                      const isOral = d.category === 'Oral' || d.category === 'PCT'
+                      return (
+                        <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
+                          {d.drug_name}: 缺 {Math.abs(d.deficit)} {isOral ? '顆' : '瓶'}
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )
+      })()}
     </div>
   )
 }

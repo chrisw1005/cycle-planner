@@ -14,6 +14,8 @@ interface DrugCardProps {
   isAdmin: boolean
   onDelete?: (id: string) => void
   onInventoryEdit?: (drug: Drug) => void
+  threshold?: number
+  deficit?: number
 }
 
 const categoryColors: Record<string, string> = {
@@ -22,7 +24,7 @@ const categoryColors: Record<string, string> = {
   PCT: 'bg-teal-500/10 text-teal-500 border-teal-500/30',
 }
 
-export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit }: DrugCardProps) {
+export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit, threshold, deficit }: DrugCardProps) {
   return (
     <Card className="relative group overflow-hidden rounded-xl">
       {/* Cover image — flush with top rounded corners */}
@@ -91,10 +93,15 @@ export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit }: DrugCardP
         <p className="text-sm text-muted-foreground">
           濃度: <span className="font-medium text-foreground">{drug.concentration} {drug.unit || 'mg/ml'}</span>
         </p>
-        <div className="pt-1.5">
+        <div className="pt-1.5 flex items-center gap-1">
           <button type="button" onClick={() => onInventoryEdit?.(drug)}>
-            <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} />
+            <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} threshold={threshold} />
           </button>
+          {deficit != null && deficit < 0 && (
+            <Badge variant="outline" className="text-xs border-red-500 text-red-500">
+              缺{Math.abs(deficit)}{drug.primary_category !== 'Injectable' ? '顆' : '瓶'}
+            </Badge>
+          )}
         </div>
       </CardContent>
     </Card>

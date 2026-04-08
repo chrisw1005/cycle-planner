@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDrugs, useDeleteDrug, useUpdateDrug } from '@/hooks/use-drugs'
+import { useGlobalInventoryDeficits } from '@/hooks/use-inventory-deficits'
 import { useAuth } from '@/hooks/use-auth'
 import { DrugCard } from '@/components/drugs/drug-card'
 import { InventoryBadge } from '@/components/drugs/inventory-badge'
@@ -17,6 +18,7 @@ import type { Drug } from '@/types'
 
 export default function DrugsPage() {
   const { data: drugs, isLoading } = useDrugs()
+  const { data: globalDeficits } = useGlobalInventoryDeficits()
   const deleteDrug = useDeleteDrug()
   const updateDrug = useUpdateDrug()
   const { isAdmin } = useAuth()
@@ -27,11 +29,30 @@ export default function DrugsPage() {
     return 'grid'
   })
   const [search, setSearch] = useState('')
+  const [lowStockThreshold, setLowStockThreshold] = useState(1)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [inventoryTarget, setInventoryTarget] = useState<Drug | null>(null)
   const [editCount, setEditCount] = useState('')
   const [editBoxes, setEditBoxes] = useState('')
   const [editLoose, setEditLoose] = useState('')
+
+  // Load threshold from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('lowStockThreshold')
+    if (saved) setLowStockThreshold(parseInt(saved) || 1)
+  }, [])
+
+  const handleThresholdChange = (value: number) => {
+    const v = Math.max(0, value)
+    setLowStockThreshold(v)
+    localStorage.setItem('lowStockThreshold', v.toString())
+  }
+
+  // Build deficit map from global cycle demands
+  const deficitMap = new Map<string, number>()
+  globalDeficits?.forEach((d) => {
+    if (d.deficit < 0) deficitMap.set(d.drug_id, d.deficit)
+  })
 
   const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode)
@@ -69,8 +90,8 @@ export default function DrugsPage() {
     d.brand?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const lowStock = filtered?.filter((d) => d.inventory_count <= 1) || []
-  const normalStock = filtered?.filter((d) => d.inventory_count > 1) || []
+  const lowStock = filtered?.filter((d) => d.inventory_count <= lowStockThreshold) || []
+  const normalStock = filtered?.filter((d) => d.inventory_count > lowStockThreshold) || []
 
   const handleDelete = () => {
     if (deleteTarget) {
@@ -116,15 +137,27 @@ export default function DrugsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="搜尋藥品名稱、分類..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Threshold */}
+      <div className="flex items-center gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="搜尋藥品名稱、分類..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="whitespace-nowrap">低庫存閾值 ≤</span>
+          <Input
+            type="number"
+            min="0"
+            value={lowStockThreshold}
+            onChange={(e) => handleThresholdChange(parseInt(e.target.value) || 0)}
+            className="w-16 h-9"
+          />
+        </div>
       </div>
 
       {/* Low Stock Section */}
@@ -136,12 +169,33 @@ export default function DrugsPage() {
           {viewMode === 'grid' ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {lowStock.map((drug) => (
-                <DrugCard key={drug.id} drug={drug} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} />
+                <DrugCard key={drug.id} drug={drug} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} threshold={lowStockThreshold} deficit={deficitMap.get(drug.id)} />
               ))}
             </div>
           ) : (
-            <DrugTable drugs={lowStock} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} />
+            <DrugTable drugs={lowStock} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} threshold={lowStockThreshold} deficitMap={deficitMap} />
           )}
+        </section>
+      )}
+
+      {/* Cycle Demand Deficit Section */}
+      {deficitMap.size > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-red-500">
+            課表需求缺口 ({deficitMap.size})
+          </h2>
+          <div className="rounded-md border border-red-500/30 p-4">
+            <div className="flex flex-wrap gap-2">
+              {globalDeficits?.filter(d => d.deficit < 0).map((d) => {
+                const isOral = d.category === 'Oral' || d.category === 'PCT'
+                return (
+                  <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
+                    {d.drug_name}: {isOral ? `缺 ${Math.abs(d.deficit)} 顆` : `缺 ${Math.abs(d.deficit)} 瓶`}
+                  </Badge>
+                )
+              })}
+            </div>
+          </div>
         </section>
       )}
 
@@ -157,11 +211,11 @@ export default function DrugsPage() {
         ) : viewMode === 'grid' ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {normalStock.map((drug) => (
-              <DrugCard key={drug.id} drug={drug} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} />
+              <DrugCard key={drug.id} drug={drug} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} threshold={lowStockThreshold} deficit={deficitMap.get(drug.id)} />
             ))}
           </div>
         ) : (
-          <DrugTable drugs={normalStock} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} />
+          <DrugTable drugs={normalStock} isAdmin={isAdmin} onDelete={setDeleteTarget} onInventoryEdit={openInventoryEdit} threshold={lowStockThreshold} deficitMap={deficitMap} />
         )}
       </section>
 
@@ -226,7 +280,7 @@ export default function DrugsPage() {
   )
 }
 
-function DrugTable({ drugs, isAdmin, onDelete, onInventoryEdit }: { drugs: Drug[]; isAdmin: boolean; onDelete: (id: string) => void; onInventoryEdit: (drug: Drug) => void }) {
+function DrugTable({ drugs, isAdmin, onDelete, onInventoryEdit, threshold = 1, deficitMap }: { drugs: Drug[]; isAdmin: boolean; onDelete: (id: string) => void; onInventoryEdit: (drug: Drug) => void; threshold?: number; deficitMap?: Map<string, number> }) {
   const categoryColors: Record<string, string> = {
     Injectable: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
     Oral: 'bg-purple-500/10 text-purple-500 border-purple-500/30',
@@ -275,9 +329,16 @@ function DrugTable({ drugs, isAdmin, onDelete, onInventoryEdit }: { drugs: Drug[
               <TableCell>{drug.concentration} {drug.unit || 'mg/ml'}</TableCell>
               <TableCell>{drug.ester_type === 'Long' ? '長效' : drug.ester_type === 'Short' ? '短效' : drug.ester_type === 'E3D' ? 'E3D' : '—'}</TableCell>
               <TableCell>
-                <button type="button" onClick={() => onInventoryEdit(drug)}>
-                  <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => onInventoryEdit(drug)}>
+                    <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} threshold={threshold} />
+                  </button>
+                  {deficitMap?.has(drug.id) && (
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-500">
+                      缺{Math.abs(deficitMap.get(drug.id)!)}
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               {isAdmin && (
                 <TableCell>

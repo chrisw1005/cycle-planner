@@ -128,7 +128,7 @@ export function ScheduleGrid({
     } catch {
       // ignore invalid drag data
     }
-  }, [onCellMove, totalWeeks, cycleDrugs])
+  }, [onCellMove, totalWeeks, cycleDrugs, cellMap])
 
   return (
     <div className="overflow-x-auto">
