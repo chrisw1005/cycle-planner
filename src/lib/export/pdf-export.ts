@@ -72,15 +72,14 @@ export async function exportScheduleToPDF(
     for (let day = 1; day <= 7; day++) {
       const entries = cellMap.get(`${week}-${day}`) || []
       entriesMap.set(`${week - 1}-${day}`, entries)
-      // Use placeholder lines for autoTable to calculate correct row height
-      // Each entry = one line of spaces to reserve vertical space
-      row.push(entries.map(() => ' ').join('\n'))
+      // Pass actual text so autoTable calculates correct row height
+      row.push(entries.join('\n'))
     }
     body.push(row)
   }
 
   const fontSize = 8
-  const lineHeight = fontSize * 0.35 // mm per line
+  const entrySpacing = 3.2 // mm between each drug entry
   const padding = 2
 
   autoTable(doc, {
@@ -102,7 +101,7 @@ export async function exportScheduleToPDF(
       valign: 'top',
       lineWidth: 0.2,
       font: fontName,
-      textColor: [255, 255, 255], // white text (invisible on white bg) — we draw manually
+      textColor: [200, 200, 200], // light placeholder text — overdrawn by didDrawCell
     },
     columnStyles: {
       0: { cellWidth: 20, halign: 'center', valign: 'middle', fontStyle: 'bold', textColor: [20, 20, 20] },
@@ -127,9 +126,13 @@ export async function exportScheduleToPDF(
       const entries = entriesMap.get(`${data.row.index}-${data.column.index}`) || []
       if (entries.length === 0) return
 
+      // Clear autoTable's text by drawing white rect over content area
+      doc.setFillColor(255, 255, 255)
+      doc.rect(data.cell.x + 0.1, data.cell.y + 0.1, data.cell.width - 0.2, data.cell.height - 0.2, 'F')
+
       const x = data.cell.x + padding
       const xRight = data.cell.x + data.cell.width - padding
-      let y = data.cell.y + padding + fontSize * 0.35 // baseline offset
+      let y = data.cell.y + padding + fontSize * 0.35
 
       doc.setFontSize(fontSize)
 
@@ -140,16 +143,15 @@ export async function exportScheduleToPDF(
           doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(parts[0], x, y)
-          // Dose — normal lighter, right aligned
-          doc.setFont(fontName, 'normal', 'normal')
-          doc.setTextColor(130, 130, 130)
+          // Dose — bold lighter, right aligned
+          doc.setTextColor(120, 120, 120)
           doc.text(parts[1], xRight, y, { align: 'right' })
         } else {
           doc.setFont(fontName, 'normal', 'bold')
           doc.setTextColor(20, 20, 20)
           doc.text(entry, x, y)
         }
-        y += lineHeight + fontSize * 0.32
+        y += entrySpacing
       }
     },
     didDrawPage: () => {
