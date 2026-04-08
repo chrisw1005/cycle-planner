@@ -50,9 +50,25 @@ export function calculateTotalMl(cycleDrug: CycleDrugWithDrug): number {
  */
 export function calculateTotalTablets(cycleDrug: CycleDrugWithDrug): number {
   const { drug } = cycleDrug
-  if ((drug.primary_category !== 'Oral' && drug.primary_category !== 'PCT') || !cycleDrug.daily_dose) return 0
+  if (drug.primary_category !== 'Oral' && drug.primary_category !== 'PCT') return 0
   const weeks = cycleDrug.end_week - cycleDrug.start_week + 1
+  const mode = cycleDrug.schedule_mode || 'daily'
+
+  if (mode === 'split_weekly' && cycleDrug.weekly_dose) {
+    // weekly_dose stores total mg per week, convert to tablets
+    const tabletsPerWeek = cycleDrug.weekly_dose / drug.concentration
+    return Math.round(tabletsPerWeek * weeks * 100) / 100
+  }
+
+  if (!cycleDrug.daily_dose) return 0
   const tabletsPerDay = cycleDrug.daily_dose / drug.concentration
+
+  if (mode === 'eod') {
+    // 3.5 doses per week average
+    return Math.round(tabletsPerDay * 3.5 * weeks * 100) / 100
+  }
+
+  // daily: 7 doses per week
   return Math.round(tabletsPerDay * 7 * weeks * 100) / 100
 }
 

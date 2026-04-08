@@ -19,6 +19,7 @@ interface DrugSelectorProps {
     daily_dose?: number
     injection_ml?: number
     total_injections?: number
+    schedule_mode?: string
     start_week: number
     end_week: number
   }) => void
@@ -34,6 +35,8 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
   const [vialMl, setVialMl] = useState('')
   const [vialCount, setVialCount] = useState('1')
   const [totalInjections, setTotalInjections] = useState('')
+  const [scheduleMode, setScheduleMode] = useState('daily')
+  const [weeklyTabs, setWeeklyTabs] = useState('')
   const [startWeek, setStartWeek] = useState('1')
   const [endWeek, setEndWeek] = useState(totalWeeks.toString())
 
@@ -78,10 +81,12 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
         end_week: computedEnd,
       })
     } else {
+      const isSplitWeekly = isOral && scheduleMode === 'split_weekly'
       onAdd({
         drug_id: selectedDrugId,
-        weekly_dose: isInjectable ? parseFloat(weeklyDose) || undefined : undefined,
-        daily_dose: isOral ? parseFloat(dailyDose) || undefined : undefined,
+        weekly_dose: isInjectable ? parseFloat(weeklyDose) || undefined : isSplitWeekly ? parseFloat(weeklyTabs) * (selectedDrug?.concentration || 1) || undefined : undefined,
+        daily_dose: isOral && !isSplitWeekly ? parseFloat(dailyDose) || undefined : undefined,
+        schedule_mode: isOral ? scheduleMode : undefined,
         start_week: parseInt(startWeek),
         end_week: parseInt(endWeek),
       })
@@ -94,6 +99,8 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
     setVialMl('')
     setVialCount('1')
     setTotalInjections('')
+    setScheduleMode('daily')
+    setWeeklyTabs('')
     setStartWeek('1')
     setEndWeek(totalWeeks.toString())
     onClose()
@@ -133,15 +140,27 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
     const vials = parseInt(vialCount) || 1
     preview = `${vials} 瓶 × ${vialMl}ml = ${e3dTotalMl}ml ÷ ${count} 次 = 每次 ${e3dMlPerInjection}ml\n${pattern.join(' → ')}`
   }
-  if (selectedDrug && isOral && dailyDose) {
-    const tabs = Math.round((parseFloat(dailyDose) / selectedDrug.concentration) * 10) / 10
-    preview = `每日 ${dailyDose}${doseUnit} (${tabs} 顆/天)`
+  if (selectedDrug && isOral) {
+    if (scheduleMode === 'split_weekly' && weeklyTabs) {
+      const wTabs = parseFloat(weeklyTabs)
+      const tabsPerDose = Math.round((wTabs / 2) * 10) / 10
+      const dosePerDay = Math.round((wTabs * selectedDrug.concentration / 2) * 10) / 10
+      preview = `每週 ${wTabs} 顆 → Day1 ${tabsPerDose}顆 (${dosePerDay}${doseUnit}) + Day4 ${tabsPerDose}顆 (${dosePerDay}${doseUnit})`
+    } else if (dailyDose) {
+      const tabs = Math.round((parseFloat(dailyDose) / selectedDrug.concentration) * 10) / 10
+      if (scheduleMode === 'eod') {
+        preview = `隔日 ${dailyDose}${doseUnit} (${tabs} 顆/次，每週約 3.5 次)`
+      } else {
+        preview = `每日 ${dailyDose}${doseUnit} (${tabs} 顆/天)`
+      }
+    }
   }
 
-  // E3D: disable button if missing injection_ml or total_injections
+  const isSplitWeekly = isOral && scheduleMode === 'split_weekly'
   const isDisabled = !selectedDrugId
     || (isInjectable && !weeklyDose)
-    || (isOral && !dailyDose)
+    || (isOral && !isSplitWeekly && !dailyDose)
+    || (isSplitWeekly && !weeklyTabs)
     || (isE3D && (!vialMl || !totalInjections))
 
   return (
@@ -252,16 +271,44 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
           )}
 
           {isOral && (
-            <div className="space-y-2">
-              <Label>每日劑量 ({doseUnit}/天) *</Label>
-              <Input
-                type="number"
-                step="any"
-                value={dailyDose}
-                onChange={(e) => setDailyDose(e.target.value)}
-                placeholder="e.g. 40"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>排程模式</Label>
+                <Select value={scheduleMode} onValueChange={(v: string | null) => v && setScheduleMode(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">每日</SelectItem>
+                    <SelectItem value="eod">隔日 (EOD)</SelectItem>
+                    <SelectItem value="split_weekly">每週固定天 (Day1 & Day4)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {scheduleMode === 'split_weekly' ? (
+                <div className="space-y-2">
+                  <Label>每週顆數 *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={weeklyTabs}
+                    onChange={(e) => setWeeklyTabs(e.target.value)}
+                    placeholder="e.g. 1"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>{scheduleMode === 'eod' ? `每次劑量 (${doseUnit})` : `每日劑量 (${doseUnit}/天)`} *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={dailyDose}
+                    onChange={(e) => setDailyDose(e.target.value)}
+                    placeholder="e.g. 0.5"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Week range — not shown for E3D (auto-calculated) */}

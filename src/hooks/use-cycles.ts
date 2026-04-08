@@ -134,7 +134,7 @@ export function useUpdateCycleStatus() {
 export function useAddCycleDrug() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (cycleDrug: { cycle_id: string; drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; start_week: number; end_week: number }) => {
+    mutationFn: async (cycleDrug: { cycle_id: string; drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; start_week: number; end_week: number }) => {
       const { data, error } = await supabase.from('cycle_drugs').insert(cycleDrug).select('*, drug:drugs(*)').single()
       if (error) throw error
       return data

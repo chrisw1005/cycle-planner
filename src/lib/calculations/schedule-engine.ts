@@ -132,22 +132,67 @@ export function generateCellsForDrug(
     }
   } else if (
     (drug.primary_category === 'Oral' || drug.primary_category === 'PCT') &&
-    cycleDrug.daily_dose
+    (cycleDrug.daily_dose || cycleDrug.weekly_dose)
   ) {
-    // Rule C: Oral — daily dose on all 7 days
-    const tabletsPerDay = roundTablets(cycleDrug.daily_dose / drug.concentration)
+    const mode = cycleDrug.schedule_mode || 'daily'
+    const dUnit = getDoseUnit(drug.unit)
+    const sName = shortName(drug.name, drug.concentration)
 
-    for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
-      for (let day = 1; day <= 7; day++) {
-        cells.push({
-          cycle_drug_id: cycleDrug.id,
-          week_number: week,
-          day_of_week: day,
-          display_value: `${shortName(drug.name, drug.concentration)} ${cycleDrug.daily_dose}${getDoseUnit(drug.unit)} (${tabletsPerDay})`,
-          ml_amount: null,
-          is_manual_override: false,
-          is_skipped: false,
-        })
+    if (mode === 'eod') {
+      // Rule C2: EOD — every other day, alternating across 2 weeks (like Short ester pattern)
+      const tabletsPerDay = roundTablets((cycleDrug.daily_dose || 0) / drug.concentration)
+      const dose = cycleDrug.daily_dose || 0
+
+      for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week += 2) {
+        // Week N: Day 1, 3, 5, 7
+        for (const day of [1, 3, 5, 7]) {
+          if (week <= totalWeeks) {
+            cells.push({
+              cycle_drug_id: cycleDrug.id, week_number: week, day_of_week: day,
+              display_value: `${sName} ${dose}${dUnit} (${tabletsPerDay})`,
+              ml_amount: null, is_manual_override: false, is_skipped: false,
+            })
+          }
+        }
+        // Week N+1: Day 2, 4, 6
+        const weekN1 = week + 1
+        if (weekN1 <= Math.min(cycleDrug.end_week, totalWeeks)) {
+          for (const day of [2, 4, 6]) {
+            cells.push({
+              cycle_drug_id: cycleDrug.id, week_number: weekN1, day_of_week: day,
+              display_value: `${sName} ${dose}${dUnit} (${tabletsPerDay})`,
+              ml_amount: null, is_manual_override: false, is_skipped: false,
+            })
+          }
+        }
+      }
+    } else if (mode === 'split_weekly' && cycleDrug.weekly_dose) {
+      // Rule C3: Split weekly — Day 1 & Day 4, total weekly tablets split evenly
+      const weeklyTablets = cycleDrug.weekly_dose / drug.concentration
+      const tabletsPerDose = roundTablets(weeklyTablets / 2)
+      const dosePerDay = roundTablets(cycleDrug.weekly_dose / 2)
+
+      for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
+        for (const day of [1, 4]) {
+          cells.push({
+            cycle_drug_id: cycleDrug.id, week_number: week, day_of_week: day,
+            display_value: `${sName} ${dosePerDay}${dUnit} (${tabletsPerDose})`,
+            ml_amount: null, is_manual_override: false, is_skipped: false,
+          })
+        }
+      }
+    } else {
+      // Rule C: Daily — dose on all 7 days (default)
+      const tabletsPerDay = roundTablets((cycleDrug.daily_dose || 0) / drug.concentration)
+
+      for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
+        for (let day = 1; day <= 7; day++) {
+          cells.push({
+            cycle_drug_id: cycleDrug.id, week_number: week, day_of_week: day,
+            display_value: `${sName} ${cycleDrug.daily_dose}${dUnit} (${tabletsPerDay})`,
+            ml_amount: null, is_manual_override: false, is_skipped: false,
+          })
+        }
       }
     }
   }

@@ -102,7 +102,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   }, [inventoryDeltas])
 
   // Handlers
-  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; start_week: number; end_week: number }) => {
+  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; start_week: number; end_week: number }) => {
     // Auto-expand total weeks if drug end_week exceeds current cycle length
     if (cycle && data.end_week > cycle.total_weeks) {
       updateCycle.mutate({ id, total_weeks: data.end_week })
@@ -114,6 +114,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       daily_dose: data.daily_dose || undefined,
       injection_ml: data.injection_ml || undefined,
       total_injections: data.total_injections || undefined,
+      schedule_mode: data.schedule_mode || undefined,
     })
   }, [id, addCycleDrug, cycle, updateCycle])
 
@@ -194,19 +195,28 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
               {isEditable ? (
                 <>
                   <span>|</span>
-                  <span>開始:</span>
-                  <Input
-                    type="date"
-                    className="h-7 w-auto text-sm"
-                    value={cycle.start_date || ''}
-                    onChange={(e) => updateCycle.mutate({ id, start_date: e.target.value || null })}
-                  />
-                  {cycle.start_date && (
+                  {cycle.start_date ? (
+                    <>
+                      <span>開始:</span>
+                      <Input
+                        type="date"
+                        className="h-7 w-auto text-sm"
+                        value={cycle.start_date}
+                        onChange={(e) => updateCycle.mutate({ id, start_date: e.target.value || null })}
+                      />
+                      <button
+                        className="shrink-0 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => updateCycle.mutate({ id, start_date: null })}
+                      >
+                        清除
+                      </button>
+                    </>
+                  ) : (
                     <button
-                      className="shrink-0 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={() => updateCycle.mutate({ id, start_date: null })}
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => updateCycle.mutate({ id, start_date: new Date().toISOString().split('T')[0] })}
                     >
-                      清除
+                      設定開始日期
                     </button>
                   )}
                 </>
