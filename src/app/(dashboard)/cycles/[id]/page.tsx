@@ -104,13 +104,19 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   }, [cycle, savedCells])
 
   // Convert generated cells to CycleCell-like objects for the grid
+  // Moved sources are excluded from display (invisible, not strikethrough)
+  // Moved targets replace any existing cell at that position
   const displayCells: CycleCell[] = useMemo(() => {
-    // Build set of moved-away source keys and moved-to targets
+    // Build lookup sets for move sources and targets
     const movedSourceKeys = new Set<string>()
+    const movedTargetKeys = new Set<string>()
     const movedTargets: CycleCell[] = []
 
     for (const move of localMoves) {
       movedSourceKeys.add(`${move.cycleDrugId}-${move.fromWeek}-${move.fromDay}`)
+      const targetKey = `${move.cycleDrugId}-${move.toWeek}-${move.toDay}`
+      movedTargetKeys.add(targetKey)
+
       const sourceCell = generatedCells.find(
         (c) => c.cycle_drug_id === move.cycleDrugId && c.week_number === move.fromWeek && c.day_of_week === move.fromDay
       )
@@ -130,15 +136,18 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       }
     }
 
-    // Mark moved-away source cells as skipped (so they persist on save)
+    // Build base cells: exclude moved sources, exclude cells replaced by moved targets
     const baseCells: CycleCell[] = []
     generatedCells.forEach((cell, i) => {
-      const sourceKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
-      const wasMovedAway = movedSourceKeys.has(sourceKey)
+      const cellKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
+      // Skip moved-away source cells (they disappear)
+      if (movedSourceKeys.has(cellKey)) return
+      // Skip cells at target position that will be replaced by moved cell
+      if (movedTargetKeys.has(cellKey)) return
 
       const key = `${cell.week_number}-${cell.day_of_week}`
       const override = localOverrides.get(`${key}-${cell.cycle_drug_id}`)
-      const skipKey = `${cell.cycle_drug_id}-${cell.week_number}-${cell.day_of_week}`
+      const skipKey = cellKey
       baseCells.push({
         id: `gen-${i}`,
         cycle_id: id,
@@ -147,8 +156,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
         day_of_week: cell.day_of_week,
         display_value: override?.value || cell.display_value,
         ml_amount: override?.ml ?? cell.ml_amount,
-        is_manual_override: cell.is_manual_override || !!override || wasMovedAway,
-        is_skipped: wasMovedAway || activeSkips.has(skipKey),
+        is_manual_override: cell.is_manual_override || !!override,
+        is_skipped: activeSkips.has(skipKey),
         created_at: '',
       })
     })
@@ -219,6 +228,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   }, [id, removeCycleDrug, updateCycleDrug, addCycleDrug, cycle, updateCycle])
 
   const handleSave = useCallback(() => {
+    // Save visible cells from displayCells
     const cellsToSave = displayCells.map((c) => ({
       cycle_id: id,
       cycle_drug_id: c.cycle_drug_id,
@@ -229,8 +239,26 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       is_manual_override: c.is_manual_override,
       is_skipped: c.is_skipped,
     }))
+    // Also save moved-away source cells as is_skipped for persistence
+    for (const move of localMoves) {
+      const sourceCell = generatedCells.find(
+        (c) => c.cycle_drug_id === move.cycleDrugId && c.week_number === move.fromWeek && c.day_of_week === move.fromDay
+      )
+      if (sourceCell) {
+        cellsToSave.push({
+          cycle_id: id,
+          cycle_drug_id: sourceCell.cycle_drug_id,
+          week_number: sourceCell.week_number,
+          day_of_week: sourceCell.day_of_week,
+          display_value: sourceCell.display_value,
+          ml_amount: sourceCell.ml_amount,
+          is_manual_override: true,
+          is_skipped: true,
+        })
+      }
+    }
     saveCells.mutate({ cycle_id: id, cells: cellsToSave })
-  }, [displayCells, id, saveCells])
+  }, [displayCells, localMoves, generatedCells, id, saveCells])
 
   const handleSkipToggle = useCallback((cycleDrugId: string, weekNumber: number, dayOfWeek: number) => {
     const skipKey = `${cycleDrugId}-${weekNumber}-${dayOfWeek}`
