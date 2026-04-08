@@ -1,4 +1,5 @@
 import type { CycleDrug, Drug, CycleCell, EsterType } from '@/types'
+import { getDoseUnit } from '@/lib/utils'
 
 interface DrugInfo {
   id: string
@@ -6,6 +7,7 @@ interface DrugInfo {
   concentration: number
   primary_category: string
   ester_type: EsterType | null
+  unit?: string
 }
 
 interface CellData {
@@ -39,7 +41,7 @@ export function generateCellsForDrug(
   const { drug } = cycleDrug
   const cells: CellData[] = []
 
-  if (drug.primary_category === 'Injectable' && drug.ester_type === 'E3D' && cycleDrug.injection_ml && cycleDrug.total_injections) {
+  if (drug.ester_type === 'E3D' && cycleDrug.injection_ml && cycleDrug.total_injections) {
     // Rule D: E3D — every 3 days, limited by total injection count (e.g. HCG)
     const mlPerInjection = roundMl(cycleDrug.injection_ml)
     const absStart = (cycleDrug.start_week - 1) * 7 + 1
@@ -141,7 +143,7 @@ export function generateCellsForDrug(
           cycle_drug_id: cycleDrug.id,
           week_number: week,
           day_of_week: day,
-          display_value: `${shortName(drug.name, drug.concentration)} ${cycleDrug.daily_dose}mg (${tabletsPerDay})`,
+          display_value: `${shortName(drug.name, drug.concentration)} ${cycleDrug.daily_dose}${getDoseUnit(drug.unit)} (${tabletsPerDay})`,
           ml_amount: null,
           is_manual_override: false,
           is_skipped: false,
@@ -199,12 +201,12 @@ export function getExpectedMl(
   cycleDrug: CycleDrug & { drug: DrugInfo }
 ): number | null {
   const { drug } = cycleDrug
-  if (drug.primary_category !== 'Injectable') return null
 
+  // E3D: any category (e.g. HCG is PCT + E3D)
   if (drug.ester_type === 'E3D' && cycleDrug.injection_ml) {
     return roundMl(cycleDrug.injection_ml)
   }
-  if (!cycleDrug.weekly_dose) return null
+  if (drug.primary_category !== 'Injectable' || !cycleDrug.weekly_dose) return null
   if (drug.ester_type === 'Long') {
     return roundMl(cycleDrug.weekly_dose / 2 / drug.concentration)
   } else if (drug.ester_type === 'Short') {

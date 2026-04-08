@@ -22,6 +22,16 @@ export function getDayLabels(startDate?: string | null): string[] {
   return [...ALL_DAY_LABELS.slice(offset), ...ALL_DAY_LABELS.slice(0, offset)]
 }
 
+/**
+ * Extract dose unit from drug unit string for display.
+ * e.g. 'mg/ml' → 'mg', 'mcg/tab' → 'mcg', 'IU/vial' → 'IU'
+ */
+export function getDoseUnit(unit?: string | null): string {
+  if (!unit) return 'mg'
+  const slash = unit.indexOf('/')
+  return slash > 0 ? unit.slice(0, slash) : unit
+}
+
 export function formatOralInventory(totalTablets: number, tabsPerBox: number | null): string {
   if (!tabsPerBox || tabsPerBox <= 0) return `${totalTablets} 顆`
   const boxes = Math.floor(totalTablets / tabsPerBox)

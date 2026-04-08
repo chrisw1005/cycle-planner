@@ -272,8 +272,8 @@ function DrugTable({ drugs, isAdmin, onDelete, onInventoryEdit }: { drugs: Drug[
                   )}
                 </div>
               </TableCell>
-              <TableCell>{drug.concentration}mg</TableCell>
-              <TableCell>{drug.ester_type === 'Long' ? '長效' : drug.ester_type === 'Short' ? '短效' : '—'}</TableCell>
+              <TableCell>{drug.concentration} {drug.unit || 'mg/ml'}</TableCell>
+              <TableCell>{drug.ester_type === 'Long' ? '長效' : drug.ester_type === 'Short' ? '短效' : drug.ester_type === 'E3D' ? 'E3D' : '—'}</TableCell>
               <TableCell>
                 <button type="button" onClick={() => onInventoryEdit(drug)}>
                   <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} />

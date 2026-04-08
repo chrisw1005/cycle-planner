@@ -77,6 +77,7 @@ export interface Drug {
   primary_category: PrimaryCategory
   sub_category: SubCategory | null
   ester_type: EsterType | null
+  unit: string
   brand: string | null
   image_url: string | null
   inventory_count: number

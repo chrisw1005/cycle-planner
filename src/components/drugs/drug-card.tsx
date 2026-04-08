@@ -89,7 +89,7 @@ export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit }: DrugCardP
           </p>
         )}
         <p className="text-sm text-muted-foreground">
-          濃度: <span className="font-medium text-foreground">{drug.concentration} mg/ml</span>
+          濃度: <span className="font-medium text-foreground">{drug.concentration} {drug.unit || 'mg/ml'}</span>
         </p>
         <div className="pt-1.5">
           <button type="button" onClick={() => onInventoryEdit?.(drug)}>

@@ -20,6 +20,7 @@ interface DrugFormProps {
     primary_category: PrimaryCategory
     sub_category: SubCategory | null
     ester_type: EsterType | null
+    unit: string
     brand: string | null
     inventory_count: number
     tabs_per_box: number | null
@@ -42,6 +43,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
   const [primaryCategory, setPrimaryCategory] = useState<PrimaryCategory>(initialData?.primary_category || 'Injectable')
   const [subCategory, setSubCategory] = useState<SubCategory | null>(initialData?.sub_category || null)
   const [esterType, setEsterType] = useState<EsterType | null>(initialData?.ester_type || null)
+  const [unit, setUnit] = useState(initialData?.unit || 'mg/ml')
   const [imageUrl, setImageUrl] = useState<string | null>(initialData?.image_url || null)
   const [inventoryCount, setInventoryCount] = useState(initialData?.inventory_count?.toString() || '0')
   const [tabsPerBox, setTabsPerBox] = useState(initialData?.tabs_per_box?.toString() || '100')
@@ -69,6 +71,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
     setPrimaryCategory(template.primary_category)
     setSubCategory(template.sub_category)
     setEsterType(template.ester_type)
+    setUnit(template.default_unit)
   }
 
   const handlePendingDelete = (url: string) => {
@@ -91,6 +94,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
       primary_category: primaryCategory,
       sub_category: subCategory,
       ester_type: esterType,
+      unit,
       brand: brand.trim() || null,
       inventory_count: (primaryCategory === 'Oral' || primaryCategory === 'PCT')
         ? (parseInt(inventoryBoxes) || 0) * (parseInt(tabsPerBox) || 100) + (parseInt(inventoryLoose) || 0)
@@ -208,9 +212,22 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                   placeholder="e.g. 300"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  注射劑: mg/ml | 口服: mg/tab | 其他: mcg/tab 或 IU/vial
-                </p>
+              </div>
+
+              {/* Unit */}
+              <div className="space-y-2">
+                <Label>單位</Label>
+                <Select value={unit} onValueChange={(v: string | null) => v && setUnit(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mg/ml">mg/ml</SelectItem>
+                    <SelectItem value="mg/tab">mg/tab</SelectItem>
+                    <SelectItem value="mcg/tab">mcg/tab</SelectItem>
+                    <SelectItem value="IU/vial">IU/vial</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

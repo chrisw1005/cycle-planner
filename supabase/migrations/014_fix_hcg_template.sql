@@ -1,5 +1,4 @@
--- Fix HCG template: should be Injectable + E3D, not PCT
+-- Add E3D ester type to HCG template (stays PCT/Other category)
 UPDATE drug_templates
-SET primary_category = 'Injectable',
-    ester_type = 'E3D'
+SET ester_type = 'E3D'
 WHERE short_name = 'HCG';

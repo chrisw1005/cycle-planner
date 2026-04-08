@@ -10,6 +10,7 @@ import { CalculationSummary } from '@/components/cycles/calculation-summary'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
+import { getDoseUnit } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -326,8 +327,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                     {cd.injection_ml
                       ? `${cd.injection_ml}ml × ${cd.total_injections}次`
                       : cd.weekly_dose
-                        ? `${cd.weekly_dose}mg/wk`
-                        : `${cd.daily_dose}mg/day`}
+                        ? `${cd.weekly_dose}${getDoseUnit(cd.drug?.unit)}/wk`
+                        : `${cd.daily_dose}${getDoseUnit(cd.drug?.unit)}/day`}
                   </span>
                   <span className="text-muted-foreground">
                     W{cd.start_week}-{cd.end_week}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getDoseUnit } from '@/lib/utils'
 import type { Drug } from '@/types'
 
 interface DrugSelectorProps {
@@ -37,9 +38,10 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
   const [endWeek, setEndWeek] = useState(totalWeeks.toString())
 
   const selectedDrug = drugs?.find((d) => d.id === selectedDrugId)
-  const isE3D = selectedDrug?.primary_category === 'Injectable' && selectedDrug?.ester_type === 'E3D'
+  const isE3D = selectedDrug?.ester_type === 'E3D'
   const isInjectable = selectedDrug?.primary_category === 'Injectable' && !isE3D
-  const isOral = selectedDrug?.primary_category === 'Oral' || selectedDrug?.primary_category === 'PCT'
+  const isOral = !isE3D && (selectedDrug?.primary_category === 'Oral' || selectedDrug?.primary_category === 'PCT')
+  const doseUnit = getDoseUnit(selectedDrug?.unit)
 
   // E3D: auto-calculate ml per injection and end_week
   const e3dTotalMl = (() => {
@@ -133,7 +135,7 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
   }
   if (selectedDrug && isOral && dailyDose) {
     const tabs = Math.round((parseFloat(dailyDose) / selectedDrug.concentration) * 10) / 10
-    preview = `每日 ${dailyDose}mg (${tabs} 顆/天)`
+    preview = `每日 ${dailyDose}${doseUnit} (${tabs} 顆/天)`
   }
 
   // E3D: disable button if missing injection_ml or total_injections
@@ -196,7 +198,7 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
 
           {isInjectable && (
             <div className="space-y-2">
-              <Label>每週劑量 (mg/週) *</Label>
+              <Label>每週劑量 ({doseUnit}/週) *</Label>
               <Input
                 type="number"
                 step="any"
@@ -251,7 +253,7 @@ export function DrugSelector({ open, onClose, onAdd, totalWeeks, existingDrugIds
 
           {isOral && (
             <div className="space-y-2">
-              <Label>每日劑量 (mg/天) *</Label>
+              <Label>每日劑量 ({doseUnit}/天) *</Label>
               <Input
                 type="number"
                 step="any"
