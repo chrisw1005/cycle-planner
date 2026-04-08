@@ -155,21 +155,21 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                     <TableRow>
                       <TableHead>藥物</TableHead>
                       <TableHead className="text-right">需求量</TableHead>
-                      <TableHead className="text-right">需求數</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {inventoryDeltas.map((d) => {
                       const isOral = d.category === 'Oral' || d.category === 'PCT'
-                      const unitLabel = isOral ? '盒' : d.ester_type === 'E3D' ? '瓶/劑' : '瓶'
+                      const isE3D = d.ester_type === 'E3D'
                       return (
                         <TableRow key={d.drug_id}>
                           <TableCell className="font-medium">{d.drug_name}</TableCell>
                           <TableCell className="text-right">
-                            {isOral ? `${Math.round(d.needed_ml)} 顆` : d.ester_type === 'E3D' ? `${d.needed_vials} 瓶/劑` : `${d.needed_ml} ml`}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {isOral ? formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box) : `${d.needed_vials} ${unitLabel}`}
+                            {isOral
+                              ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+                              : isE3D
+                                ? `${d.needed_vials} 瓶/劑`
+                                : `${d.needed_ml} ml (${d.needed_vials} 瓶)`}
                           </TableCell>
                         </TableRow>
                       )

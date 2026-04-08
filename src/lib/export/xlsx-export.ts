@@ -94,7 +94,7 @@ export function exportScheduleToXLSX(
     const statsHeaderRow = ws.addRow(['Drug Stats', '', ''])
     statsHeaderRow.getCell(1).font = { bold: true, size: 11 }
 
-    const statsColHeader = ws.addRow(['藥物', '需求量', '需求數'])
+    const statsColHeader = ws.addRow(['藥物', '需求量'])
     statsColHeader.eachCell((cell) => {
       cell.fill = HEADER_FILL
       cell.font = HEADER_FONT
@@ -104,11 +104,13 @@ export function exportScheduleToXLSX(
 
     for (const d of deltas) {
       const isOral = d.category === 'Oral' || d.category === 'PCT'
-      const row = ws.addRow([
-        d.drug_name,
-        isOral ? formatOralInventory(d.needed_ml, d.tabs_per_box) : `${d.needed_ml} ml`,
-        isOral ? `${d.needed_vials} 盒` : `${d.needed_vials} 瓶`,
-      ])
+      const isE3D = d.ester_type === 'E3D'
+      const needed = isOral
+        ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+        : isE3D
+          ? `${d.needed_vials} 瓶/劑`
+          : `${d.needed_ml} ml (${d.needed_vials} 瓶)`
+      const row = ws.addRow([d.drug_name, needed])
       row.eachCell((cell) => {
         cell.font = BODY_FONT
         cell.border = THIN_BORDER
