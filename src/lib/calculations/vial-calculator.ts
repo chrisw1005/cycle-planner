@@ -95,13 +95,14 @@ export function calculateInventoryDeltas(
   cycleDrugs: CycleDrugWithDrug[],
   allDrugs?: DrugWithInventory[]
 ): DrugInventoryDelta[] {
-  const drugMap = new Map<string, { totalAmount: number; drug: DrugWithInventory }>()
+  const drugMap = new Map<string, { totalAmount: number; drug: DrugWithInventory; vialCount?: number }>()
 
   for (const cd of cycleDrugs) {
     const isE3D = cd.drug.ester_type === 'E3D'
     if (cd.drug.primary_category === 'Injectable' || isE3D) {
       const existing = drugMap.get(cd.drug_id) || { totalAmount: 0, drug: cd.drug }
       existing.totalAmount += calculateTotalMl(cd)
+      if (isE3D && cd.vial_count) existing.vialCount = (existing.vialCount || 0) + cd.vial_count
       drugMap.set(cd.drug_id, existing)
     } else if (cd.drug.primary_category === 'Oral' || cd.drug.primary_category === 'PCT') {
       const existing = drugMap.get(cd.drug_id) || { totalAmount: 0, drug: cd.drug }
@@ -120,21 +121,23 @@ export function calculateInventoryDeltas(
     }
   }
 
-  // Sort: Injectable → Oral → PCT
+  // Sort: Injectable → Oral → PCT (E3D drugs always count as PCT)
   const categoryOrder: Record<string, number> = { Injectable: 0, Oral: 1, PCT: 2 }
+  const resolveCategory = (drug: DrugWithInventory) =>
+    drug.ester_type === 'E3D' ? 'PCT' : drug.primary_category
   const sortedEntries = Array.from(drugMap.entries()).sort(
-    ([, a], [, b]) => (categoryOrder[a.drug.primary_category] ?? 9) - (categoryOrder[b.drug.primary_category] ?? 9)
+    ([, a], [, b]) => (categoryOrder[resolveCategory(a.drug)] ?? 9) - (categoryOrder[resolveCategory(b.drug)] ?? 9)
   )
 
-  return sortedEntries.map(([drugId, { totalAmount, drug }]) => {
+  return sortedEntries.map(([drugId, { totalAmount, drug, vialCount }]) => {
     const isE3D = drug.ester_type === 'E3D'
     const isOral = !isE3D && (drug.primary_category === 'Oral' || drug.primary_category === 'PCT')
 
-    // E3D: inventory_count is vials/doses directly, no ml→vial conversion
+    // E3D: use user-specified vial_count directly; fallback to ceil(totalMl / 10)
     const neededUnits = isOral
       ? calculateBoxesNeeded(totalAmount, drug.tabs_per_box)
       : isE3D
-        ? Math.ceil(totalAmount)  // totalAmount = total ml, treat inventory as vials
+        ? (vialCount || calculateVialsNeeded(totalAmount))
         : calculateVialsNeeded(totalAmount)
 
     // Use pooled inventory when available, otherwise individual
@@ -146,7 +149,7 @@ export function calculateInventoryDeltas(
     return {
       drug_id: drugId,
       drug_name: drug.name,
-      category: drug.primary_category as 'Injectable' | 'Oral' | 'PCT',
+      category: resolveCategory(drug) as 'Injectable' | 'Oral' | 'PCT',
       ester_type: (drug.ester_type as any) || null,
       needed_ml: Math.round(totalAmount * 100) / 100,
       needed_vials: neededUnits,

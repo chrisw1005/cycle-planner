@@ -16,6 +16,7 @@ interface AddData {
   daily_dose?: number
   injection_ml?: number
   total_injections?: number
+  vial_count?: number
   schedule_mode?: string
   start_week: number
   end_week: number
@@ -104,6 +105,7 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
         drug_id: selectedDrugId,
         injection_ml: e3dMlPerInjection || undefined,
         total_injections: parseInt(totalInjections) || undefined,
+        vial_count: vialCount ? parseInt(vialCount) : undefined,
         start_week: parseInt(startWeek),
         end_week: computedEnd,
       }

@@ -59,8 +59,8 @@ export async function exportScheduleToPDF(
   }
 
   // Title
-  doc.setFont(fontName)
-  doc.setFontSize(16)
+  doc.setFont(fontName, 'normal', 'bold')
+  doc.setFontSize(18)
   doc.text(title, 14, 15)
 
   // Schedule table — store real entries separately, pass placeholder text for row height calculation
@@ -79,8 +79,8 @@ export async function exportScheduleToPDF(
     body.push(row)
   }
 
-  const fontSize = 8
-  const entrySpacing = 3.2 // mm between each drug entry
+  const fontSize = 9
+  const entrySpacing = 3.5 // mm between each drug entry
   const padding = 2
 
   autoTable(doc, {
@@ -91,7 +91,7 @@ export async function exportScheduleToPDF(
     headStyles: {
       fillColor: [40, 40, 40],
       textColor: [255, 255, 255],
-      fontSize: 9,
+      fontSize: 10,
       halign: 'center',
       fontStyle: 'bold',
       font: fontName,
@@ -171,8 +171,8 @@ export async function exportScheduleToPDF(
   if (deltas && deltas.length > 0) {
     doc.addPage()
 
-    doc.setFont(fontName)
-    doc.setFontSize(11)
+    doc.setFont(fontName, 'normal', 'bold')
+    doc.setFontSize(14)
     doc.setTextColor(0)
     doc.text(hasCJK ? '藥物用量統計' : 'Drug Stats', 14, 15)
 
@@ -211,13 +211,13 @@ export async function exportScheduleToPDF(
       headStyles: {
         fillColor: [40, 40, 40],
         textColor: [255, 255, 255],
-        fontSize: 8,
+        fontSize: 10,
         halign: 'center',
         fontStyle: 'bold',
         font: fontName,
       },
       bodyStyles: {
-        fontSize: 8,
+        fontSize: 9,
         cellPadding: 2,
         font: fontName,
         textColor: [20, 20, 20],

@@ -14,10 +14,15 @@ const HEADER_FONT: Partial<ExcelJS.Font> = {
   size: 16,
   color: { argb: 'FFFFFFFF' },
 }
-const WEEK_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 14, bold: true }
-const NAME_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF1A1A1A' } }
-const DOSE_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 13, color: { argb: 'FF888888' } }
-const BODY_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 13 }
+const WEEK_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 15, bold: true }
+const NAME_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FF1A1A1A' } }
+const DOSE_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 14, color: { argb: 'FF888888' } }
+const BODY_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 14 }
+const CAT_FILL: ExcelJS.FillPattern = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'FFE8E8E8' },
+}
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: 'thin' },
   left: { style: 'thin' },
@@ -34,8 +39,8 @@ function splitDrugEntry(v: string): [string, string] | null {
 // Build rich text for a cell: each entry as name (bold dark) + padded dose (gray), separated by newlines
 function buildRichText(entries: string[], colChars: number): ExcelJS.CellRichTextValue {
   const richText: ExcelJS.RichText[] = []
-  // Calibri 13 is wider than Calibri 11 (Excel default width unit), scale down usable chars
-  const usableChars = Math.floor(colChars * 0.75)
+  // Calibri 14 is wider than Calibri 11 (Excel default width unit), scale down usable chars
+  const usableChars = Math.floor(colChars * 0.7)
   entries.forEach((entry, i) => {
     if (i > 0) richText.push({ text: '\n' })
     const parts = splitDrugEntry(entry)
@@ -94,7 +99,7 @@ export function exportScheduleToXLSX(
         maxLen = Math.max(maxLen, entry.length)
       }
     }
-    colWidths.push(Math.max(maxLen * 1.3 + 2, 14))
+    colWidths.push(Math.max(maxLen * 1.5 + 2, 18))
   }
 
   // Apply column widths
@@ -134,7 +139,7 @@ export function exportScheduleToXLSX(
     ws.addRow([]) // blank row
 
     const statsHeaderRow = ws.addRow(['Drug Stats', '', ''])
-    statsHeaderRow.getCell(1).font = { bold: true, size: 14 }
+    statsHeaderRow.getCell(1).font = { bold: true, size: 16 }
 
     const statsColHeader = ws.addRow(['藥物', '需求量'])
     statsColHeader.eachCell((cell) => {
@@ -146,10 +151,11 @@ export function exportScheduleToXLSX(
 
     const groups = groupDeltasByCategory(deltas)
     for (const group of groups) {
-      // Category header row — merged across both columns, centered
+      // Category header row — merged across both columns, centered, with background
       const catRow = ws.addRow([group.label])
       ws.mergeCells(catRow.number, 1, catRow.number, 2)
-      catRow.getCell(1).font = { name: 'Calibri', bold: true, size: 13, color: { argb: 'FF555555' } }
+      catRow.getCell(1).font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FF555555' } }
+      catRow.getCell(1).fill = CAT_FILL
       catRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
       catRow.getCell(1).border = THIN_BORDER
       catRow.getCell(2).border = THIN_BORDER

@@ -119,6 +119,7 @@ export interface CycleDrug {
   daily_dose: number | null
   injection_ml: number | null       // E3D only: ml per injection
   total_injections: number | null   // E3D only: total number of injections
+  vial_count: number | null          // E3D only: user-specified number of vials needed
   schedule_mode: string | null      // null/'daily', 'eod', 'split_weekly'
   start_week: number
   end_week: number
