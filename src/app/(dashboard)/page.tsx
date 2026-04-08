@@ -185,10 +185,11 @@ export default function DashboardPage() {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {deficitDrugs.map((d) => {
-                      const isOral = d.category === 'Oral' || d.category === 'PCT'
+                      const isE3D = d.ester_type === 'E3D'
+                      const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
                       return (
                         <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
-                          {d.drug_name}: 缺 {Math.abs(d.deficit)} {isOral ? '顆' : '瓶'}
+                          {d.drug_name}: 缺 {Math.abs(d.deficit)} {isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'}
                         </Badge>
                       )
                     })}

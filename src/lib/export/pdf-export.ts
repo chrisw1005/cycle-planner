@@ -192,8 +192,8 @@ export async function exportScheduleToPDF(
         },
       }])
       for (const d of group.items) {
-        const isOral = d.category === 'Oral' || d.category === 'PCT'
         const isE3D = d.ester_type === 'E3D'
+        const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
         const needed = isOral
           ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
           : isE3D

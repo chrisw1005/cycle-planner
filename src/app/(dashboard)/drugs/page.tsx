@@ -187,10 +187,11 @@ export default function DrugsPage() {
           <div className="rounded-md border border-red-500/30 p-4">
             <div className="flex flex-wrap gap-2">
               {globalDeficits?.filter(d => d.deficit < 0).map((d) => {
-                const isOral = d.category === 'Oral' || d.category === 'PCT'
+                const isE3D = d.ester_type === 'E3D'
+                const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
                 return (
                   <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
-                    {d.drug_name}: {isOral ? `缺 ${Math.abs(d.deficit)} 顆` : `缺 ${Math.abs(d.deficit)} 瓶`}
+                    {d.drug_name}: {isOral ? `缺 ${Math.abs(d.deficit)} 顆` : isE3D ? `缺 ${Math.abs(d.deficit)} 瓶/劑` : `缺 ${Math.abs(d.deficit)} 瓶`}
                   </Badge>
                 )
               })}

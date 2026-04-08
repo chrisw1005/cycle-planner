@@ -214,8 +214,8 @@ export default function ExportPage({ params }: { params: Promise<{ id: string }>
                         </TableCell>
                       </TableRow>
                       {group.items.map((d) => {
-                        const isOral = d.category === 'Oral' || d.category === 'PCT'
                         const isE3D = d.ester_type === 'E3D'
+                        const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
                         return (
                           <TableRow key={d.drug_id}>
                             <TableCell className="font-medium">{d.drug_name}</TableCell>

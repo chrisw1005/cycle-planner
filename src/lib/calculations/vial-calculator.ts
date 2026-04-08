@@ -250,7 +250,8 @@ export function adjustDeltasForSkippedCells(
     if (skippedAmount === 0) return d
 
     const adjustedNeededMl = Math.round((d.needed_ml - skippedAmount) * 100) / 100
-    const isOral = d.category === 'Oral' || d.category === 'PCT'
+    const isE3D = d.ester_type === 'E3D'
+    const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
     const adjustedUnits = isOral
       ? calculateBoxesNeeded(adjustedNeededMl, d.tabs_per_box)
       : calculateVialsNeeded(adjustedNeededMl)
