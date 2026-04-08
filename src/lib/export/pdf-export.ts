@@ -109,9 +109,9 @@ export async function exportScheduleToPDF(
     },
     bodyStyles: {
       fontSize,
-      cellPadding: padding,
+      cellPadding: { top: 3, right: padding, bottom: 3, left: padding },
       valign: 'top',
-      lineWidth: 0.5,
+      lineWidth: 0.35,
       font: fontName,
       textColor: [200, 200, 200], // light placeholder text — overdrawn by didDrawCell
     },
@@ -144,7 +144,7 @@ export async function exportScheduleToPDF(
 
       const x = data.cell.x + padding
       const xRight = data.cell.x + data.cell.width - padding
-      let y = data.cell.y + padding + fontSize * 0.35
+      let y = data.cell.y + 3 + fontSize * 0.35
 
       doc.setFontSize(fontSize)
 
