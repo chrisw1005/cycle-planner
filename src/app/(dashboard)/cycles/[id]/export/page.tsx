@@ -168,9 +168,17 @@ export default function ExportPage({ params }: { params: Promise<{ id: string }>
                       const entries = cellMap.get(`${weekNum}-${dayNum}`) || []
                       return (
                         <td key={dayNum} className="border border-border px-2 py-1.5 align-top text-xs">
-                          {entries.map((entry, i) => (
-                            <div key={i} className="leading-tight">{entry}</div>
-                          ))}
+                          {entries.map((entry, i) => {
+                            const match = entry.match(/^(.+?)\s+(\d[\d.]*\s*(?:ml|mg|IU|mcg).*)$/i)
+                            return match ? (
+                              <div key={i} className="leading-tight flex justify-between gap-2">
+                                <span>{match[1]}</span>
+                                <span className="text-muted-foreground">{match[2]}</span>
+                              </div>
+                            ) : (
+                              <div key={i} className="leading-tight">{entry}</div>
+                            )
+                          })}
                         </td>
                       )
                     })}

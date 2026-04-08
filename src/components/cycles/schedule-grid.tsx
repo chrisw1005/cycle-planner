@@ -307,7 +307,20 @@ function ScheduleCell({
               }
             }}
           >
-            {cell.display_value}
+            {(() => {
+              const v = cell.display_value || ''
+              // Split "DrugName 0.8ml" or "DrugName 30mg (3)" into name + dose
+              const match = v.match(/^(.+?)\s+(\d[\d.]*\s*(?:ml|mg|IU|mcg).*)$/i)
+              if (match) {
+                return (
+                  <span className="flex justify-between gap-1">
+                    <span>{match[1]}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">{match[2]}</span>
+                  </span>
+                )
+              }
+              return v
+            })()}
           </div>
         ))}
       </div>

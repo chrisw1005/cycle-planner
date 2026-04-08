@@ -63,7 +63,12 @@ export async function exportScheduleToPDF(
     const row = [`Week ${week}`]
     for (let day = 1; day <= 7; day++) {
       const entries = cellMap.get(`${week}-${day}`) || []
-      row.push(entries.join('\n'))
+      // Format each entry as "Name\n  dose" for clearer PDF layout
+      const formatted = entries.map((v) => {
+        const match = v.match(/^(.+?)\s+(\d[\d.]*\s*(?:ml|mg|IU|mcg).*)$/i)
+        return match ? `${match[1]}\n  ${match[2]}` : v
+      })
+      row.push(formatted.join('\n'))
     }
     body.push(row)
   }

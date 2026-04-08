@@ -155,9 +155,17 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                           const entries = cellMap.get(`${weekNum}-${dayIdx + 1}`) || []
                           return (
                             <td key={dayIdx} className="border border-border px-2 py-1.5 align-top text-xs">
-                              {entries.map((entry, i) => (
-                                <div key={i} className="leading-tight whitespace-nowrap">{entry}</div>
-                              ))}
+                              {entries.map((entry, i) => {
+                                const match = entry.match(/^(.+?)\s+(\d[\d.]*\s*(?:ml|mg|IU|mcg).*)$/i)
+                                return match ? (
+                                  <div key={i} className="leading-tight whitespace-nowrap flex justify-between gap-2">
+                                    <span>{match[1]}</span>
+                                    <span className="text-muted-foreground">{match[2]}</span>
+                                  </div>
+                                ) : (
+                                  <div key={i} className="leading-tight whitespace-nowrap">{entry}</div>
+                                )
+                              })}
                             </td>
                           )
                         })}
