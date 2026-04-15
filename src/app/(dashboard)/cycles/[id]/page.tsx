@@ -380,7 +380,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" render={<Link href={`/people/${cycle.person_id}`} />}>
+          <Button variant="ghost" size="icon" render={<Link href={`/people/${cycle.person_id}`} aria-label="返回" />}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -459,7 +459,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
           </Button>
           {isAdmin && cycle.status !== 'Archived' && (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
+              <DropdownMenuTrigger render={<Button variant="outline" size="icon" aria-label="更多選項" />}>
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -510,11 +510,11 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
             新增藥物
           </Button>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" onClick={() => handleWeekChange(-1)}>
+            <Button variant="outline" size="icon" onClick={() => handleWeekChange(-1)} aria-label="減少一週">
               <Minus className="h-4 w-4" />
             </Button>
             <span className="px-3 text-sm font-medium">{cycle.total_weeks} 週</span>
-            <Button variant="outline" size="icon" onClick={() => handleWeekChange(1)}>
+            <Button variant="outline" size="icon" onClick={() => handleWeekChange(1)} aria-label="增加一週">
               <Plus className="h-4 w-4" />
             </Button>
           </div>

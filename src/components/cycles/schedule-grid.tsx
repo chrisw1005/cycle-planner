@@ -286,12 +286,13 @@ function ScheduleCell({
       )}
       <div className="space-y-1">
         {cells.map((cell, i) => (
-          <div
+          <button
             key={cell.id || `${cellKey}-${i}`}
+            type="button"
             draggable={canDrag}
-            onDragStart={(e) => handleDragStart(e, cell)}
+            onDragStart={(e) => handleDragStart(e as unknown as DragEvent<HTMLDivElement>, cell)}
             className={cn(
-              'text-xs leading-tight select-none rounded px-0.5',
+              'text-xs leading-tight select-none rounded px-0.5 text-left w-full',
               cell.is_skipped
                 ? 'line-through opacity-40'
                 : cn(
@@ -321,14 +322,14 @@ function ScheduleCell({
               }
               return v
             })()}
-          </div>
+          </button>
         ))}
       </div>
       {hasCells && isAdmin && (
         <div className="flex items-center gap-1 mt-1">
           <Popover open={editOpen} onOpenChange={setEditOpen}>
             <PopoverTrigger
-              render={<button className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
+              render={<button className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" aria-label="編輯格子" />}
             >
                 <Pencil className="h-3 w-3" />
             </PopoverTrigger>
@@ -367,9 +368,11 @@ function ScheduleCell({
               draggable
               onDragStart={handleDragStartAll}
               className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+              role="button"
+              aria-label="拖曳整格所有藥物"
               title="拖曳整格所有藥物"
             >
-              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <circle cx="5" cy="3" r="1.5" />
                 <circle cx="11" cy="3" r="1.5" />
                 <circle cx="5" cy="8" r="1.5" />

@@ -115,10 +115,10 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {card.title}
                 </CardTitle>
-                <card.icon className={`h-5 w-5 ${card.color}`} />
+                <card.icon className={`h-5 w-5 ${card.color}`} aria-hidden="true" />
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{card.value}</p>
+                <p className="text-3xl font-bold tabular-nums">{card.value}</p>
                 {card.title === '課表總數' && stats.totalCycles > 0 && (() => {
                   const inProgress = (stats.cyclesByStatus['Scheduled'] || 0) + (stats.cyclesByStatus['Planned'] || 0)
                   const testing = stats.cyclesByStatus['Testing'] || 0

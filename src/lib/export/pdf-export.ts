@@ -103,7 +103,7 @@ export async function exportScheduleToPDF(
     const row = [`Week ${week}`]
     for (let day = 1; day <= 7; day++) {
       const entries = cellMap.get(`${week}-${day}`) || []
-      entriesMap.set(`${week - 1}-${day}`, entries)
+      entriesMap.set(`Week ${week}-${day}`, entries)
       // Pass actual text so autoTable calculates correct row height
       row.push(entries.join('\n'))
     }
@@ -155,36 +155,48 @@ export async function exportScheduleToPDF(
       // Only custom-draw body cells for day columns (not Week column)
       if (data.section !== 'body' || data.column.index === 0) return
 
-      const entries = entriesMap.get(`${data.row.index}-${data.column.index}`) || []
+      // Use raw row data for lookup — works for both normal and remainder (page-split) rows
+      const rawRow = data.row.raw as string[]
+      const weekLabel = rawRow[0]
+      const entries = entriesMap.get(`${weekLabel}-${data.column.index}`) || []
       if (entries.length === 0) return
 
-      // Clear autoTable's text by drawing white rect over content area
+      // Clear autoTable's placeholder text
       doc.setFillColor(255, 255, 255)
       doc.rect(data.cell.x + 0.1, data.cell.y + 0.1, data.cell.width - 0.2, data.cell.height - 0.2, 'F')
+
+      // Determine which entries belong to this cell portion.
+      // When autoTable splits a row across pages, remainder rows have index === -1
+      // and cell.text contains only the lines assigned to this page portion.
+      const isRemainder = data.row.index === -1
+      const cellTextLineCount = Array.isArray(data.cell.text) ? data.cell.text.length : 0
+      const startIndex = isRemainder ? Math.max(0, entries.length - cellTextLineCount) : 0
 
       const x = data.cell.x + padding
       const xRight = data.cell.x + data.cell.width - padding
       let y = data.cell.y + 3 + fontSize * 0.35
+      const cellBottom = data.cell.y + data.cell.height - 1
       const cellContentWidth = data.cell.width - 2 * padding
       const gap = 1.5
 
       doc.setFontSize(fontSize)
 
-      for (const entry of entries) {
+      for (let i = startIndex; i < entries.length; i++) {
+        if (y > cellBottom) break
+
+        const entry = entries[i]
         const parts = splitDrugEntry(entry)
         if (parts) {
           doc.setFont(fontName, 'normal', 'bold')
           const doseWidth = doc.getTextWidth(parts[1])
           const maxNameWidth = cellContentWidth - doseWidth - gap
 
-          // Drug name — truncated if needed
           doc.setTextColor(20, 20, 20)
           const displayName = maxNameWidth > 0
             ? truncateText(doc, parts[0], maxNameWidth)
             : parts[0].charAt(0) + '...'
           doc.text(displayName, x, y)
 
-          // Dose — right-aligned, never truncated
           doc.setTextColor(120, 120, 120)
           doc.text(parts[1], xRight, y, { align: 'right' })
         } else {

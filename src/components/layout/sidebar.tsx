@@ -56,6 +56,7 @@ export function Sidebar() {
           size="icon"
           className="h-8 w-8 shrink-0"
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? '展開側邊欄' : '收合側邊欄'}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
@@ -147,6 +148,7 @@ export function Sidebar() {
             size="icon"
             className="h-8 w-8 shrink-0"
             onClick={logout}
+            aria-label="登出"
           >
             <LogOut className="h-4 w-4" />
           </Button>
