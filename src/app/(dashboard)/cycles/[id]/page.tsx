@@ -8,6 +8,7 @@ import { ScheduleGrid } from '@/components/cycles/schedule-grid'
 import { DrugSelector } from '@/components/cycles/drug-selector'
 import { CalculationSummary } from '@/components/cycles/calculation-summary'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
+import { SaveTemplateDialog } from '@/components/cycles/save-template-dialog'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
 import { getDoseUnit } from '@/lib/utils'
@@ -19,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Minus, Save, ArrowLeft, Download, Trash2, MoreHorizontal, Archive } from 'lucide-react'
+import { Plus, Minus, Save, ArrowLeft, Download, Trash2, MoreHorizontal, Archive, BookmarkPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { statusColors, statusLabels } from '@/lib/constants/cycle-status'
@@ -45,6 +46,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const [drugSelectorOpen, setDrugSelectorOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const [weekChangeDialogOpen, setWeekChangeDialogOpen] = useState(false)
   const [pendingWeekDelta, setPendingWeekDelta] = useState(0)
   const [localOverrides, setLocalOverrides] = useState<Map<string, { value: string; ml: number | null }>>(new Map())
@@ -457,26 +459,37 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
               <Download className="mr-2 h-4 w-4" />
               匯出
           </Button>
-          {isAdmin && cycle.status !== 'Archived' && (
+          {(cycle.cycle_drugs && cycle.cycle_drugs.length > 0 || (isAdmin && cycle.status !== 'Archived')) && (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="outline" size="icon" aria-label="更多選項" />}>
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {cycle.status === 'Completed' && (
-                  <DropdownMenuItem onClick={handleArchive}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    封存課表
+                {cycle.cycle_drugs && cycle.cycle_drugs.length > 0 && (
+                  <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
+                    <BookmarkPlus className="mr-2 h-4 w-4" />
+                    儲存為模板
                   </DropdownMenuItem>
                 )}
-                {(cycle.status === 'Scheduled' || cycle.status === 'Planned' || cycle.status === 'Testing') && (
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    刪除課表
-                  </DropdownMenuItem>
+                {isAdmin && cycle.status !== 'Archived' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {cycle.status === 'Completed' && (
+                      <DropdownMenuItem onClick={handleArchive}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        封存課表
+                      </DropdownMenuItem>
+                    )}
+                    {(cycle.status === 'Scheduled' || cycle.status === 'Planned' || cycle.status === 'Testing') && (
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDeleteDialogOpen(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        刪除課表
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -673,6 +686,16 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
 
       {/* Export Dialog */}
       <CycleExportDialog id={id} open={exportDialogOpen} onOpenChange={setExportDialogOpen} />
+
+      {/* Save as Template Dialog */}
+      <SaveTemplateDialog
+        open={templateDialogOpen}
+        onOpenChange={setTemplateDialogOpen}
+        cycleName={cycle.name}
+        cycleNotes={cycle.notes}
+        totalWeeks={cycle.total_weeks}
+        cycleDrugs={(cycle.cycle_drugs || []) as any}
+      />
     </div>
   )
 }
