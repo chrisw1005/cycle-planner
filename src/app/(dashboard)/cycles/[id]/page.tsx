@@ -387,9 +387,18 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">
-                {cycle.name || `${(cycle as any).person?.nickname} 的課表`}
-              </h1>
+              {isEditable ? (
+                <input
+                  className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-1 focus:ring-primary rounded px-1 -mx-1 min-w-0"
+                  value={cycle.name || ''}
+                  placeholder={`${(cycle as any).person?.nickname} 的課表`}
+                  onChange={(e) => updateCycle.mutate({ id, name: e.target.value || null })}
+                />
+              ) : (
+                <h1 className="text-2xl font-bold">
+                  {cycle.name || `${(cycle as any).person?.nickname} 的課表`}
+                </h1>
+              )}
               <Badge variant="outline" className={statusColors[cycle.status]}>
                 {statusLabels[cycle.status]}
               </Badge>

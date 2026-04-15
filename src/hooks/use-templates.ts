@@ -83,6 +83,36 @@ export function useSaveAsTemplate() {
   })
 }
 
+export function useUpdateTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; description?: string | null; total_weeks?: number }) => {
+      const { data, error } = await supabase.from('cycle_templates').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cycle-templates'], refetchType: 'all' })
+      toast.success('模板已更新')
+    },
+    onError: (error) => toast.error('更新失敗', { description: error.message }),
+  })
+}
+
+export function useRemoveTemplateDrug() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('cycle_template_drugs').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cycle-templates'], refetchType: 'all' })
+    },
+    onError: (error) => toast.error('移除失敗', { description: error.message }),
+  })
+}
+
 export function useDeleteTemplate() {
   const queryClient = useQueryClient()
   return useMutation({

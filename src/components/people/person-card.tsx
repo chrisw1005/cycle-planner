@@ -135,10 +135,10 @@ export function PersonCard({ person, isAdmin, onDelete, onToggleNeedsCycle }: Pe
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {person.age && <span>年紀: {person.age}</span>}
-            {person.height && <span>身高: {person.height}cm</span>}
-            {person.weight && <span>體重: {person.weight}kg</span>}
-            {person.body_fat && <span>體脂: {person.body_fat}%</span>}
+            <span>年紀: {person.age ?? '—'}</span>
+            <span>身高: {person.height ? `${person.height}cm` : '—'}</span>
+            <span>體重: {person.weight ? `${person.weight}kg` : '—'}</span>
+            <span>體脂: {person.body_fat ? `${person.body_fat}%` : '—'}</span>
           </div>
           <p className="text-xs text-muted-foreground">
             最近課表: {person.last_cycle_date ? new Date(person.last_cycle_date).toLocaleDateString('zh-TW') : '—'}

@@ -1,17 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCycles, useDeleteCycle } from '@/hooks/use-cycles'
 import { useAuth } from '@/hooks/use-auth'
+import { useTemplates, useDeleteTemplate, useUpdateTemplate, useRemoveTemplateDrug } from '@/hooks/use-templates'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Eye, Pencil, Trash2, ChevronDown, ChevronUp, BookmarkPlus, Pill, X } from 'lucide-react'
 import Link from 'next/link'
 import { statusColors, statusLabels } from '@/lib/constants/cycle-status'
+import { getDoseUnit } from '@/lib/utils'
 import type { CycleStatus } from '@/types'
+import type { CycleTemplate, CycleTemplateDrug } from '@/types'
 
 export default function CyclesPage() {
   const { data: cycles, isLoading } = useCycles()
@@ -19,6 +23,27 @@ export default function CyclesPage() {
   const { isAdmin } = useAuth()
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
+
+  // Template state
+  const [templatesExpanded, setTemplatesExpanded] = useState(true)
+  const [editTemplate, setEditTemplate] = useState<CycleTemplate | null>(null)
+  const [deleteTemplateTarget, setDeleteTemplateTarget] = useState<CycleTemplate | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+
+  // Template hooks
+  const { data: templates } = useTemplates()
+  const deleteTemplateMut = useDeleteTemplate()
+  const updateTemplate = useUpdateTemplate()
+  const removeTemplateDrug = useRemoveTemplateDrug()
+
+  // Sync edit form when editTemplate changes
+  useEffect(() => {
+    if (editTemplate) {
+      setEditName(editTemplate.name)
+      setEditDesc(editTemplate.description || '')
+    }
+  }, [editTemplate])
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-12 text-muted-foreground">載入中...</div>
@@ -35,6 +60,59 @@ export default function CyclesPage() {
           </Button>
         )}
       </div>
+
+      {/* Templates Section */}
+      {templates && templates.length > 0 && (
+        <div className="rounded-md border">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium"
+            onClick={() => setTemplatesExpanded(v => !v)}
+          >
+            <span className="flex items-center gap-2">
+              <BookmarkPlus className="h-4 w-4" />
+              課表模板 ({templates.length})
+            </span>
+            {templatesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {templatesExpanded && (
+            <div className="border-t px-4 py-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {templates.map((tpl) => (
+                  <div key={tpl.id} className="group relative rounded-lg border p-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{tpl.name}</p>
+                        {tpl.description && (
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{tpl.description}</p>
+                        )}
+                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{tpl.total_weeks} 週</span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <Pill className="h-3 w-3" />
+                            {tpl.drugs?.length || 0} 種藥物
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="編輯模板"
+                          onClick={() => { setEditTemplate(tpl); setEditName(tpl.name); setEditDesc(tpl.description || '') }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label="刪除模板"
+                          onClick={() => setDeleteTemplateTarget(tpl)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {!cycles?.length ? (
         <p className="text-muted-foreground py-12 text-center">尚無課表</p>
@@ -106,6 +184,82 @@ export default function CyclesPage() {
       {previewId && (
         <CycleExportDialog id={previewId} open={!!previewId} onOpenChange={(open) => !open && setPreviewId(null)} />
       )}
+
+      {/* Edit Template Dialog */}
+      <Dialog open={!!editTemplate} onOpenChange={(open) => !open && setEditTemplate(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>編輯模板</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">模板名稱</label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">說明</label>
+              <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="模板說明..." />
+            </div>
+            {editTemplate?.drugs && editTemplate.drugs.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">包含藥物</label>
+                <div className="rounded-md border divide-y text-sm">
+                  {editTemplate.drugs.map((td) => (
+                    <div key={td.id} className="flex items-center justify-between px-3 py-2">
+                      <span className="font-medium">{td.drug?.name || '(已刪除)'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {td.injection_ml ? `${td.injection_ml}ml x ${td.total_injections}` : td.weekly_dose ? `${td.weekly_dose}${getDoseUnit(td.drug?.unit)}/wk` : `${td.daily_dose}${getDoseUnit(td.drug?.unit)}/day`}
+                          {' '}W{td.start_week}–{td.end_week}
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" aria-label="移除藥物"
+                          onClick={() => removeTemplateDrug.mutate(td.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTemplate(null)}>取消</Button>
+            <Button
+              disabled={!editName.trim() || updateTemplate.isPending}
+              onClick={() => {
+                if (!editTemplate) return
+                updateTemplate.mutate(
+                  { id: editTemplate.id, name: editName.trim(), description: editDesc.trim() || null },
+                  { onSuccess: () => setEditTemplate(null) }
+                )
+              }}
+            >
+              {updateTemplate.isPending ? '儲存中...' : '儲存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Template Confirmation */}
+      <Dialog open={!!deleteTemplateTarget} onOpenChange={(open) => !open && setDeleteTemplateTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>刪除模板</DialogTitle>
+            <DialogDescription>確定要刪除模板「{deleteTemplateTarget?.name}」？此操作無法復原。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTemplateTarget(null)}>取消</Button>
+            <Button variant="destructive" disabled={deleteTemplateMut.isPending}
+              onClick={() => {
+                if (!deleteTemplateTarget) return
+                deleteTemplateMut.mutate(deleteTemplateTarget.id, { onSuccess: () => setDeleteTemplateTarget(null) })
+              }}>
+              {deleteTemplateMut.isPending ? '刪除中...' : '刪除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

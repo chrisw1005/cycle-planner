@@ -250,12 +250,23 @@ function NewCycleForm() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="startDate">開始日期</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                  {startDate && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                      onClick={() => setStartDate('')}
+                    >
+                      清除
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
