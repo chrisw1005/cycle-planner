@@ -39,6 +39,8 @@ export interface DosageRange {
   advanced: string
   unit: string
   notes: string
+  tooltip?: string
+  source?: string
 }
 
 export interface PCTTimingEntry {
@@ -288,7 +290,7 @@ export const dosageRanges: DosageRange[] = [
   // DHT
   { compound: 'Boldenone (EQ)', category: '注射型', beginner: '300-400', intermediate: '400-600', advanced: '600-900', unit: 'mg/週', notes: '極慢效，需 16+ 週' },
   { compound: 'Masteron Propionate', category: '注射型', beginner: '200-300', intermediate: '300-400', advanced: '400-600', unit: 'mg/週', notes: '有輕微抗雌效果' },
-  { compound: 'Primobolan', category: '注射型', beginner: '300-400', intermediate: '400-600', advanced: '600-800', unit: 'mg/週', notes: '溫和，副作用少' },
+  { compound: 'Primobolan', category: '注射型', beginner: '400', intermediate: '600-700', advanced: '800-1000', unit: 'mg/週', notes: '溫和，需較高劑量才有效', tooltip: 'Methenolone Enanthate 的雄激素:合成代謝比為 1:2~1:3（Wikipedia），合成代謝效力相對低，不芳香化、無肝毒性、SHBG 親和力僅約睪酮的 16%。因效力低，需要較高劑量：初級 400mg/週為有效起點，中級常在 600-700mg 範圍，高級 800-1000mg+。臨床研究中乳癌治療曾使用 400-1200mg/週（Kennedy & Yarbro, 1968）。副作用極溫和，即使高劑量也相對安全。', source: 'Wikipedia — Metenolone; PubMed PMID:4952912; Steroidal.com — Primobolan Doses' },
   // 口服
   { compound: 'Dianabol (Dbol)', category: '口服', beginner: '20-30', intermediate: '30-50', advanced: '50-80', unit: 'mg/天', notes: '限 4-6 週，高度芳香化' },
   { compound: 'Anavar (Oxandrolone)', category: '口服', beginner: '20-30', intermediate: '30-50', advanced: '50-80', unit: 'mg/天', notes: '最溫和的口服之一' },

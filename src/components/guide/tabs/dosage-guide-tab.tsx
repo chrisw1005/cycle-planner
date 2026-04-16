@@ -3,6 +3,7 @@
 import { dosageRanges, bodyWeightGuidance, dosingStrategies, dosingStrategyKeyPoints } from '@/lib/data/drug-guide'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { InfoTooltip } from '@/components/guide/info-tooltip'
 import {
   Table,
   TableBody,
@@ -116,7 +117,10 @@ export function DosageGuideTab() {
                   <TableCell>{d.beginner}</TableCell>
                   <TableCell>{d.intermediate}</TableCell>
                   <TableCell>{d.advanced}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{d.notes}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {d.notes}
+                    {d.tooltip && <InfoTooltip content={d.tooltip} source={d.source} />}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -146,7 +150,10 @@ export function DosageGuideTab() {
                   <TableCell>{d.beginner}</TableCell>
                   <TableCell>{d.intermediate}</TableCell>
                   <TableCell>{d.advanced}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{d.notes}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {d.notes}
+                    {d.tooltip && <InfoTooltip content={d.tooltip} source={d.source} />}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
