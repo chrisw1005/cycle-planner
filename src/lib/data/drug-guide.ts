@@ -93,6 +93,16 @@ export interface CycleSupplement {
   when: string
 }
 
+export interface DosingStrategy {
+  name: string
+  nameEn: string
+  description: string
+  advantages: string[]
+  disadvantages: string[]
+  suitability: string
+  example?: string
+}
+
 // --- Data ---
 
 export const cycleExamples: CycleExample[] = [
@@ -307,6 +317,85 @@ export const bodyWeightGuidance = {
   ],
 }
 
+export const dosingStrategies: DosingStrategy[] = [
+  {
+    name: '固定劑量',
+    nameEn: 'Constant Dosing',
+    description: '整個週期使用相同劑量。血藥濃度在前幾次注射後達到穩態並維持穩定。',
+    advantages: [
+      '簡單可預測 — 容易管理和追蹤效果',
+      '穩態血藥濃度穩定，副作用可預測',
+      '最容易評估個人對某劑量的反應',
+    ],
+    disadvantages: [
+      '達到穩態需要數個半衰期（長酯化合物需 4-6 週）',
+      '無法根據週期階段調整需求',
+    ],
+    suitability: '所有使用者，特別是初級者。這是最推薦的默認方案。',
+    example: 'Testosterone Enanthate 500mg/週，第 1-12 週不變',
+  },
+  {
+    name: '金字塔式',
+    nameEn: 'Pyramid Dosing',
+    description: '劑量從低開始遞增至峰值，然後在週期末遞減回低劑量。這是一種較舊的方法，現在多數專家不再推薦。',
+    advantages: [
+      '理論上逐步適應可減少初期副作用衝擊',
+      '遞減階段理論上可「過渡」到 PCT',
+    ],
+    disadvantages: [
+      '沒有科學依據支持遞減有助於 HPTA 恢復',
+      '峰值劑量時間短，有效高劑量暴露時間不足',
+      '遞減不等於 PCT — 任何超生理劑量都會抑制 HPTA',
+      '血藥濃度波動大，難以管理副作用',
+    ],
+    suitability: '不推薦。舊派方法，已被現代方案淘汰。',
+    example: '第 1-3 週 250mg → 第 4-8 週 500mg → 第 9-12 週 250mg',
+  },
+  {
+    name: '前置劑量',
+    nameEn: 'Frontloading',
+    description: '首週（或首 1-2 次注射）使用雙倍劑量，之後恢復正常劑量。目的是更快達到穩態血藥濃度，跳過長酯化合物的「啟動期」。',
+    advantages: [
+      '將達到穩態的時間從 4-6 週縮短至 1-2 週',
+      '更快感受到化合物效果',
+      '對長酯化合物（如 EQ、Deca）特別有用',
+    ],
+    disadvantages: [
+      '初期副作用更強烈（因為血藥濃度快速升高）',
+      '更高的芳香化風險 — 可能需要更早和更積極的 AI 管理',
+      '不適合首次使用某化合物的人（無法評估正常劑量反應）',
+      '注射量較大可能造成注射部位不適',
+    ],
+    suitability: '中級以上使用者，且已熟悉該化合物在正常劑量下的反應。常用於 EQ 和 Deca。',
+    example: 'EQ 第 1 週 800mg（frontload）→ 第 2-16 週 400mg/週',
+  },
+  {
+    name: '遞減式 / 巡航',
+    nameEn: 'Tapering / Blast & Cruise',
+    description: '週期末將劑量降至 TRT 水平（100-200mg/週 Test）而非完全停藥。在高劑量（blast）和維持劑量（cruise）之間交替，不做 PCT。',
+    advantages: [
+      '避免 PCT 的不適和恢復期',
+      '維持穩定的荷爾蒙環境，減少波動',
+      '適合長期 AAS 使用者或不打算完全恢復自然產生的使用者',
+    ],
+    disadvantages: [
+      '承諾長期外源荷爾蒙替代 — 自然 HPTA 可能永久受損',
+      '即使 TRT 劑量也有長期心血管和代謝風險',
+      '需要持續監測血液指標',
+      '不適合想要保留自然恢復選項的使用者',
+    ],
+    suitability: '僅限已決定長期使用 AAS 且不計劃 PCT 恢復的高級使用者。需要醫療監督。',
+    example: 'Blast: Test 500mg/週 x 16 週 → Cruise: Test 150mg/週 x 8-12 週 → 下一次 Blast',
+  },
+]
+
+export const dosingStrategyKeyPoints: string[] = [
+  '初級者應始終使用固定劑量 — 簡單、可預測、易於評估反應',
+  '前置劑量僅適合已熟悉該化合物正常反應的有經驗使用者',
+  '金字塔式劑量缺乏科學依據，不建議使用',
+  '遞減/巡航是一種生活方式選擇，而非週期策略 — 意味著放棄自然恢復',
+]
+
 export const pctTimingTable: PCTTimingEntry[] = [
   { compound: 'Testosterone Propionate', waitTime: '3 天' },
   { compound: 'Testosterone Enanthate / Cypionate', waitTime: '2 週' },
@@ -482,6 +571,15 @@ export interface ClenProtocol {
   dosageRange: { gender: string; start: string; max: string }[]
   sideEffects: string[]
   notes: string[]
+  advantages?: string[]
+  disadvantages?: string[]
+}
+
+export interface ClenOverview {
+  mechanism: string
+  advantages: string[]
+  disadvantages: string[]
+  contraindications: string[]
 }
 
 export interface T3Protocol {
@@ -522,6 +620,17 @@ export const clenProtocols: ClenProtocol[] = [
       '每 2-3 天增加 20mcg，直到達到個人可接受的最高劑量',
       '如果靜息心率 >100bpm 或出現嚴重震顫，應降低劑量',
     ],
+    advantages: [
+      '受體有恢復時間，每次重新開始時效果完整',
+      '累積心臟壓力較低（有定期休息）',
+      '方案簡單，無需額外藥物',
+      '適合首次使用 Clen 的使用者',
+    ],
+    disadvantages: [
+      '關閉期間失去脂肪燃燒加速效果',
+      '頻繁的開/關過渡期可能影響訓練穩定性',
+      '每次重新開始可能再次經歷初期副作用（震顫等）',
+    ],
   },
   {
     name: '持續遞增方案（搭配 Ketotifen）',
@@ -550,12 +659,47 @@ export const clenProtocols: ClenProtocol[] = [
       '總時長 8-12 週持續使用',
       'Ketotifen 為抗組織胺藥物，可上調 Beta-2 受體以對抗 Clen 引起的受體下調',
       'PubMed 研究證實 Ketotifen + Clen 可增加 Beta 腎上腺素受體功能',
-      '優點：持續脂肪燃燒、減少停藥中斷、效果更平穩',
-      '缺點：累積心臟壓力較高、需額外藥物、後期高劑量效益遞減',
-      '到達最高安全劑量後無法再升高 — 此方案有天花板限制',
+    ],
+    advantages: [
+      '持續脂肪燃燒效果，無中斷期',
+      '效果更平穩，減少開/關過渡帶來的波動',
+      'Ketotifen 上調受體可延長有效使用時間',
+    ],
+    disadvantages: [
+      '累積心臟壓力較高 — 長時間持續刺激心血管系統',
+      '需額外使用 Ketotifen（增加藥物複雜度和嗜睡副作用）',
+      '後期高劑量效益遞減 — 達到天花板後無法再升高',
     ],
   },
 ]
+
+export const clenOverview: ClenOverview = {
+  mechanism: 'Clenbuterol 是選擇性 Beta-2 腎上腺素受體激動劑，最初用於治療哮喘。它通過激活 Beta-2 受體來增加基礎代謝率和核心體溫（產熱效應），促進脂肪細胞中的脂肪分解。Clen 不是合成代謝類固醇，不影響 HPTA 軸，不需要 PCT。',
+  advantages: [
+    '顯著增加基礎代謝率（約 10-15%），加速脂肪燃燒',
+    '具有溫和的抗分解代謝作用 — 減脂期間有助於保留肌肉',
+    '可能具有輕微的食慾抑制效果',
+    '不影響 HPTA 軸，不需要 PCT',
+    '不芳香化，不引起水腫或雌激素相關副作用',
+    '口服方便，半衰期長（~36 小時），每天一次即可',
+  ],
+  disadvantages: [
+    '心臟壓力：升高心率和血壓，長期使用可能導致心肌肥大',
+    'Beta-2 受體下調：持續使用 ~14 天後效果減弱，需循環使用或搭配 Ketotifen',
+    '副作用明顯：震顫、心悸、失眠、肌肉抽筋（鉀/牛磺酸流失）',
+    '減脂效果有上限 — 不能替代良好的飲食和有氧計畫',
+    '個體差異大 — 部分使用者對低劑量即有強烈反應',
+    '長期安全數據有限（動物研究顯示心肌毒性，人體研究不足）',
+  ],
+  contraindications: [
+    '心臟疾病、心律不整、高血壓患者禁用',
+    '不可與其他興奮劑合用（麻黃鹼、DMAA、高劑量咖啡因）— 心律不整風險',
+    '甲狀腺功能亢進者禁用',
+    '使用期間需監測靜息心率（應 <100 bpm）和血壓',
+    '如出現持續性心悸、胸痛或嚴重頭痛，應立即停藥',
+    '建議使用期間補充 Taurine 3-5g/天（防止肌肉抽筋）+ 鉀 + 鎂',
+  ],
+}
 
 export const t3Protocols: T3Protocol[] = [
   {

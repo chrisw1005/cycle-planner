@@ -1,6 +1,6 @@
 'use client'
 
-import { dosageRanges, bodyWeightGuidance } from '@/lib/data/drug-guide'
+import { dosageRanges, bodyWeightGuidance, dosingStrategies, dosingStrategyKeyPoints } from '@/lib/data/drug-guide'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -47,6 +47,51 @@ export function DosageGuideTab() {
             ))}
           </ul>
         </div>
+
+        {/* Dosing Strategies */}
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+          <h3 className="font-medium">劑量策略選擇</h3>
+          <ul className="list-disc list-inside text-sm space-y-0.5">
+            {dosingStrategyKeyPoints.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        </div>
+
+        {dosingStrategies.map((strategy, i) => (
+          <div key={i} className="rounded-lg border border-border p-4 space-y-3">
+            <h3 className="font-medium flex items-center gap-2">
+              {strategy.name}
+              <Badge variant="secondary">{strategy.nameEn}</Badge>
+            </h3>
+            <p className="text-sm text-muted-foreground">{strategy.description}</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-green-500">優點：</p>
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
+                  {strategy.advantages.map((a, j) => <li key={j}>{a}</li>)}
+                </ul>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-destructive">缺點：</p>
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
+                  {strategy.disadvantages.map((d, j) => <li key={j}>{d}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-sm">
+              <span className="font-medium">適合對象：</span>
+              <span className="text-muted-foreground">{strategy.suitability}</span>
+            </p>
+            {strategy.example && (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">範例：</span>{strategy.example}
+              </p>
+            )}
+          </div>
+        ))}
 
         {/* Injectable dosage table */}
         <div className="space-y-2">
