@@ -6,6 +6,7 @@ import { useGlobalInventoryDeficits } from '@/hooks/use-inventory-deficits'
 import { useAuth } from '@/hooks/use-auth'
 import { DrugCard } from '@/components/drugs/drug-card'
 import { InventoryBadge } from '@/components/drugs/inventory-badge'
+import { DeficitActions } from '@/components/drugs/deficit-export-menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -181,9 +182,12 @@ export default function DrugsPage() {
       {/* Cycle Demand Deficit Section */}
       {deficitMap.size > 0 && (
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-red-500">
-            課表需求缺口 ({deficitMap.size})
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-red-500">
+              課表需求缺口 ({deficitMap.size})
+            </h2>
+            <DeficitActions deficits={globalDeficits ?? []} allDrugs={drugs ?? []} />
+          </div>
           <div className="rounded-md border border-red-500/30 p-4">
             <div className="flex flex-wrap gap-2">
               {globalDeficits?.filter(d => d.deficit < 0).map((d) => {
