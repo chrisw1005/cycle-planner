@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { statusLabels } from '@/lib/constants/cycle-status'
 import { Users, Pill, Calendar, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
+import { DeficitActions } from '@/components/drugs/deficit-export-menu'
 import type { CycleStatus } from '@/types'
 
 interface DashboardStats {
@@ -179,8 +180,8 @@ export default function DashboardPage() {
                     課表需求缺口
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-2">
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
                     以下藥品在所有進行中課表（排除測試中）的總需求超過現有庫存：
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -194,6 +195,7 @@ export default function DashboardPage() {
                       )
                     })}
                   </div>
+                  <DeficitActions deficits={deficitDrugs} allDrugs={allDrugs ?? []} />
                 </CardContent>
               </Card>
             )}
