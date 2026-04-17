@@ -424,12 +424,14 @@ export const pctProtocols: PCTProtocol[] = [
       '聯合方案為首選 — 兩者作用機制互補，效益大於單用',
       '標準 4 週遞減：Nolva 40/40/20/20 + Clomid 50/50/25/25（Test-only 輕中度週期）',
       '延長 6 週方案（含 19-nor Deca/Tren 或 16+ 週重週期）：Nolva 40/40/20/20/20/20 + Clomid 50/50/25/25（前 4 週）',
+      '重度 6 週 front-load 變體：Clomid 100/100/50/50/25/25 + Nolva 40/40/20/20/20/20（強壓制 / Scally 重週期級）— 100mg 副作用（視覺、情緒、熱潮紅）顯著增強，僅建議極重週期',
+      '2022 Journal of Clinical Endocrinology 研究：聯合 Clomid + Nolvadex 比單用 SERM 加速睪酮恢復約 30%',
       'Clomid 前 2 週 50mg 提供強 FSH/LH 峰值啟動恢復，第 3-4 週減半降低視覺/情緒副作用',
       'Nolvadex 前 2 週 40mg 加速達血中穩態，第 3 週起 20mg 維持接近最大 SERM 效果',
       '極輕度口服週期可採平坦方案：Nolva 20mg × 4 週 + Clomid 25-50mg × 4 週（副作用更少）',
     ],
     tooltip: 'Clomid 產生較強的初始 FSH/LH 峰值但長期會降低垂體敏感度；Nolvadex 持續使用可增強垂體對 LHRH 的 LH 反應。40/20 與 50/25 的遞減結構是社群與文獻共識 — 前段以較高劑量快速達穩態、在 HPTA 受抑制最深時提供最強推進力；後段減半以降低副作用（視覺、情緒、熱潮紅）並平滑過渡至自然 HPTA 運作。',
-    source: 'Swolverine PCT Guide / Huge Supplements PCT / r/steroids Wiki PCT Consensus',
+    source: 'Journal of Clinical Endocrinology 2022 / Swolverine PCT Guide / Huge Supplements PCT / r/steroids Wiki',
   },
   {
     name: 'Nolvadex 單用方案（替代）',
@@ -466,6 +468,39 @@ export const pctProtocols: PCTProtocol[] = [
     tooltip: '此方案包含 HCG（直接刺激 Leydig 細胞）+ 雙 SERM（刺激垂體 LH/FSH），三管齊下覆蓋 HPTA 軸所有層級。Scally 2006 年臨床研究在 19 名嚴重壓制的男性上達到 100% 成功率；現今社群多採用降階劑量（Clomid 100→50、Nolva 40→20）以降低視覺與情緒副作用，成效差異不大但耐受性更佳。',
     source: 'Dr. Michael Scally — ASIH 2006 臨床研究 (Inside Bodybuilding)',
   },
+  {
+    name: 'Enclomiphene 替代方案（低副作用）',
+    suitability: '輕-重度週期；Clomid 副作用敏感者首選',
+    drugs: [
+      { name: 'Enclomiphene', dosage: '12.5mg（輕）/ 25mg（標準）/ 50mg（重）/ 天', duration: '共 14-28 天' },
+    ],
+    notes: [
+      'Enclomiphene 是 Clomid 的純活性異構物（Clomid = 62% Enclomiphene + 38% Zuclomiphene）',
+      'Zuclomiphene 滯留體內數週並為多數 Clomid 副作用來源（視覺、情緒、熱潮紅）',
+      '臨床試驗不良反應率 14% vs Clomid 47%；Clomid Crazies（41% 憂鬱、45% 情緒波動）顯著降低',
+      '可在聯合方案中完全替代 Clomid 位置（搭配 Nolvadex 40/40/20/20）',
+      '半衰期僅 10 小時 — 建議每日固定時間服用',
+      '部分使用者可省略 HCG（Enclomiphene 直接刺激 LH/FSH，不依賴睪丸間質細胞）',
+    ],
+    tooltip: 'Enclomiphene 於 2013-2015 年間在臨床研究中獲得關注（PMC4155868 PK/PD 研究）；取消了 Clomid 中造成長期副作用的 Zuclomiphene 成分，保留全部升睪酮效益。目前為當代 PCT 中副作用敏感族群的首選 SERM，尤其適合對情緒波動、視覺問題敏感者。',
+    source: 'PMC — Enclomiphene Pharmacokinetics (PMC4155868) / Muscle & Brawn Enclomiphene Guide',
+  },
+  {
+    name: 'Raloxifene（Evista）— Gyno 反轉方案',
+    suitability: '週期中或 PCT 期間出現 Gyno 症狀',
+    drugs: [
+      { name: 'Raloxifene', dosage: '60mg/天 × 10 天 → 30mg/天', duration: '持續至 Gyno 緩解（4-12 週）' },
+    ],
+    notes: [
+      '在乳腺組織對抗雌激素受體的效力優於 Tamoxifen（臨床研究證實）',
+      'PCT 搭配：60mg × 4-6 週 → 30mg × 最後 1 週',
+      '適合已出現 Gyno 觸痛 / 硬塊的反轉治療',
+      '亦可刺激垂體 LH/FSH 分泌，但主要定位為 Gyno 專項',
+      '副作用相對 Tamoxifen 溫和（血栓風險仍存在，尤其久坐、抽菸者）',
+    ],
+    tooltip: 'Raloxifene 為第二代 SERM（原為骨質疏鬆治療藥）。在乳腺組織對抗雌激素的親和力比 Tamoxifen 強；2010 年青春期 Gyno 研究顯示反轉成功率優於 Tamoxifen。雖也有 LH 刺激效果，臨床主要定位為 Gyno 專項治療而非主 SERM。',
+    source: 'Steroid Cycles Raloxifene Guide / Nanotech Project Raloxifene Bodybuilding',
+  },
 ]
 
 export const hcgOnCycleProtocol = {
@@ -484,8 +519,9 @@ export const hcgOnCycleProtocol = {
     { text: '長期持續高劑量可能有 Leydig 細胞 LH 受體下調風險', tooltip: '主要來自動物研究（Menon et al.），人體證據較不明確。間歇性給藥允許受體恢復，因此 On-cycle 2-3x/週的間歇方案優於每日使用。' },
   ],
   importantNotes: [
-    '務必做週期前血液檢查以建立基線',
-    '在 PCT 結束後 4-6 週做血檢確認恢復',
+    '週期前血檢建立基線（關鍵項目：LH, FSH, Total T, Free T, E2, SHBG + 血脂 / 肝腎功能）',
+    'PCT 結束後 4-6 週做血檢確認恢復（核心 6 項：LH, FSH, Total T, Free T, E2, SHBG）',
+    'E2 建議區間 20-30 pg/mL（過高 → Gyno / 水腫；過低 → 關節痛 / 性慾降低）',
     '「週期時間 + PCT = 休息時間」規則',
   ],
 }
