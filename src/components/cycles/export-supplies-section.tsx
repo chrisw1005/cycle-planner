@@ -142,35 +142,33 @@ export function ExportSuppliesSection({
                     <span className="text-xs w-6">{s.unit}</span>
                   </div>
                 )}
-                {!s.is_system && (
-                  <div className="flex items-center gap-0.5 shrink-0 ml-1 pl-2 border-l">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setEditing(s)}
-                      aria-label={`編輯「${s.name}」`}
-                      title={`編輯「${s.name}」`}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => {
-                        if (confirm(`確定要刪除用具「${s.name}」嗎？\n（不會影響其他課表已選的記錄）`)) {
-                          deleteSupply.mutate(s.id)
-                        }
-                      }}
-                      aria-label={`刪除「${s.name}」`}
-                      title={`刪除「${s.name}」`}
-                      className="text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
+                <div className="flex items-center gap-0.5 shrink-0 ml-1 pl-2 border-l">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setEditing(s)}
+                    aria-label={`編輯「${s.name}」`}
+                    title={`編輯「${s.name}」`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (confirm(`確定要刪除用具「${s.name}」嗎？\n刪除後可隨時點「+ 新增用具」再次建立。`)) {
+                        deleteSupply.mutate(s.id)
+                      }
+                    }}
+                    aria-label={`刪除「${s.name}」`}
+                    title={`刪除「${s.name}」`}
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             )
           })}
