@@ -304,24 +304,33 @@ export async function exportScheduleToPDF(
     }
 
     // Place the stats table ~25mm below the schedule (gives a visible 1-row gap).
-    // If rows don't fit vertically, split into up to 3 side-by-side columns.
-    // Category headers are kept together with their drugs (no orphans at column boundary).
-    const scheduleEndY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 20
-    const tableStartY = scheduleEndY + 25
-    const titleY = scheduleEndY + 20
-
+    // If the schedule fills most of the current page, push the entire stats section
+    // (title + table) to a fresh page so it never starts in a sliver of leftover space.
+    // Multi-column layout (up to 3 cols) only kicks in when even a fresh page can't
+    // hold all rows in one column. Category headers are kept together with their drugs.
     const rowHeight = 8.5
     const headerHeight = 10
+    const titleHeight = 6
+    const titleToTableGap = 5
     const bottomMargin = 20
+    const topMarginFreshPage = 15
     const maxColumns = 3
     const columnGap = 8
 
     const pageHeight = doc.internal.pageSize.height
-    const available = pageHeight - tableStartY - bottomMargin
-    const rowsPerCol = Math.max(1, Math.floor((available - headerHeight) / rowHeight))
+    const scheduleEndY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 20
 
+    // Decide column count based on the capacity of a *fresh* page, not the cramped
+    // remainder below the schedule — otherwise rowsPerCol collapses to 1 and the
+    // 3-column branch fires when there's barely any vertical space.
+    const freshPageRows = Math.max(
+      1,
+      Math.floor(
+        (pageHeight - topMarginFreshPage - titleHeight - titleToTableGap - headerHeight - bottomMargin) / rowHeight
+      )
+    )
     const totalRows = statsBody.length
-    const numColumns = Math.min(maxColumns, Math.max(1, Math.ceil(totalRows / rowsPerCol)))
+    const numColumns = Math.min(maxColumns, Math.max(1, Math.ceil(totalRows / freshPageRows)))
     const columnWidth = numColumns === 3 ? 88 : 100
 
     type StatsRow = typeof statsBody[number]
@@ -346,6 +355,27 @@ export async function exportScheduleToPDF(
       return cols
     }
 
+    const sliced = splitByColumns(statsBody, numColumns)
+    const tallestCol = sliced.reduce((m, c) => Math.max(m, c.length), 0)
+
+    // Required height for the tallest column's body + header + small buffer.
+    // If the slot below the schedule can't accommodate it, start a fresh page.
+    const requiredTableHeight = headerHeight + tallestCol * rowHeight + 4
+    const desiredTableStartY = scheduleEndY + 25
+    const desiredTitleY = scheduleEndY + 20
+    const availableBelowSchedule = pageHeight - desiredTableStartY - bottomMargin
+
+    let titleY: number
+    let tableStartY: number
+    if (availableBelowSchedule < requiredTableHeight) {
+      doc.addPage()
+      titleY = topMarginFreshPage + titleHeight
+      tableStartY = titleY + titleToTableGap
+    } else {
+      titleY = desiredTitleY
+      tableStartY = desiredTableStartY
+    }
+
     const totalTablesWidth = numColumns * columnWidth + (numColumns - 1) * columnGap
     const leftStart = Math.max(10, (pageWidth - totalTablesWidth) / 2)
 
@@ -360,7 +390,6 @@ export async function exportScheduleToPDF(
       { align: 'center' }
     )
 
-    const sliced = splitByColumns(statsBody, numColumns)
     for (let col = 0; col < numColumns; col++) {
       if (sliced[col].length === 0) continue
       autoTable(doc, {
