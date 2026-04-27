@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs'
 import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/utils'
-import type { CycleCell, DrugInventoryDelta } from '@/types'
+import type { CycleCell, DrugInventoryDelta, SupplySummary } from '@/types'
 
 
 const HEADER_FILL: ExcelJS.FillPattern = {
@@ -61,7 +61,8 @@ export function exportScheduleToXLSX(
   totalWeeks: number,
   cells: CycleCell[],
   deltas?: DrugInventoryDelta[],
-  startDate?: string | null
+  startDate?: string | null,
+  supplies?: SupplySummary[]
 ) {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet(cycleName || 'Cycle')
@@ -134,30 +135,64 @@ export function exportScheduleToXLSX(
     weekCell.border = THIN_BORDER
   }
 
-  // --- Drug Stats Table (spans columns 1-8 like the schedule) ---
-  if (deltas && deltas.length > 0) {
-    ws.addRow([]) // blank row
+  // --- Drug Stats + Supplies Tables (side by side: drug stats cols 1-6, supplies cols 9-12) ---
+  const hasDeltas = !!deltas && deltas.length > 0
+  const hasSupplies = !!supplies && supplies.length > 0
+
+  let titleRowNum: number | null = null
+  let headerRowNum: number | null = null
+
+  if (hasDeltas || hasSupplies) {
+    ws.addRow([]) // blank row gap
 
     const titleRow = ws.addRow([])
-    titleRow.getCell(1).value = 'Drug Stats'
-    titleRow.getCell(1).font = { bold: true, size: 16 }
-    ws.mergeCells(titleRow.number, 1, titleRow.number, 8)
+    titleRowNum = titleRow.number
 
-    // Column headers: 藥物 (cols 1-3), 需求量 (cols 4-6)
-    const colHdrRow = ws.addRow([])
-    colHdrRow.getCell(1).value = '藥物'
-    colHdrRow.getCell(4).value = '需求量'
-    ws.mergeCells(colHdrRow.number, 1, colHdrRow.number, 3)
-    ws.mergeCells(colHdrRow.number, 4, colHdrRow.number, 6)
-    for (let c = 1; c <= 6; c++) {
-      const cell = colHdrRow.getCell(c)
-      cell.fill = HEADER_FILL
-      cell.font = HEADER_FONT
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      cell.border = THIN_BORDER
+    if (hasDeltas) {
+      titleRow.getCell(1).value = 'Drug Stats'
+      titleRow.getCell(1).font = { bold: true, size: 16 }
+      ws.mergeCells(titleRowNum, 1, titleRowNum, 6)
+    }
+    if (hasSupplies) {
+      titleRow.getCell(9).value = '其他'
+      titleRow.getCell(9).font = { bold: true, size: 16 }
+      titleRow.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' }
+      ws.mergeCells(titleRowNum, 9, titleRowNum, 12)
     }
 
-    const groups = groupDeltasByCategory(deltas)
+    const colHdrRow = ws.addRow([])
+    headerRowNum = colHdrRow.number
+
+    if (hasDeltas) {
+      colHdrRow.getCell(1).value = '藥物'
+      colHdrRow.getCell(4).value = '需求量'
+      ws.mergeCells(headerRowNum, 1, headerRowNum, 3)
+      ws.mergeCells(headerRowNum, 4, headerRowNum, 6)
+      for (let c = 1; c <= 6; c++) {
+        const cell = colHdrRow.getCell(c)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = THIN_BORDER
+      }
+    }
+    if (hasSupplies) {
+      colHdrRow.getCell(9).value = '用具'
+      colHdrRow.getCell(11).value = '數量'
+      ws.mergeCells(headerRowNum, 9, headerRowNum, 10)
+      ws.mergeCells(headerRowNum, 11, headerRowNum, 12)
+      for (let c = 9; c <= 12; c++) {
+        const cell = colHdrRow.getCell(c)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = THIN_BORDER
+      }
+    }
+  }
+
+  if (hasDeltas) {
+    const groups = groupDeltasByCategory(deltas!)
     for (const group of groups) {
       // Category header row — merged across 6 columns, centered, with background
       const catRow = ws.addRow([])
@@ -191,6 +226,36 @@ export function exportScheduleToXLSX(
         dataRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' }
       }
     }
+  }
+
+  // --- Supplies block (cols 9-12) ---
+  // Write to existing rows starting from headerRowNum + 1 so it sits beside drug stats.
+  // If supplies extend past drug-stats rows, fill cells in subsequent rows directly.
+  if (hasSupplies && headerRowNum !== null) {
+    supplies!.forEach((s, i) => {
+      const targetRowNum = headerRowNum! + 1 + i
+      // Ensure the row exists (drug stats may have created it; if not, addRow up to it)
+      while (ws.rowCount < targetRowNum) ws.addRow([])
+      const row = ws.getRow(targetRowNum)
+      row.getCell(9).value = s.name
+      row.getCell(11).value = `${s.quantity} ${s.unit}`
+      ws.mergeCells(targetRowNum, 9, targetRowNum, 10)
+      ws.mergeCells(targetRowNum, 11, targetRowNum, 12)
+      for (let c = 9; c <= 12; c++) {
+        const cell = row.getCell(c)
+        cell.font = BODY_FONT
+        cell.border = THIN_BORDER
+        cell.alignment = { vertical: 'middle' }
+      }
+      row.getCell(9).font = NAME_FONT
+      row.getCell(11).alignment = { horizontal: 'right', vertical: 'middle' }
+    })
+
+    // Set widths for cols 9-12
+    ws.getColumn(9).width = 18
+    ws.getColumn(10).width = 4
+    ws.getColumn(11).width = 12
+    ws.getColumn(12).width = 4
   }
 
   // Save

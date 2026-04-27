@@ -5,6 +5,7 @@ import { useCycle, useCycleCells, useCycles } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
+import { countInjectionEvents } from '@/lib/calculations/supply-calculator'
 import { exportScheduleToXLSX } from '@/lib/export/xlsx-export'
 import { exportScheduleToPDF } from '@/lib/export/pdf-export'
 import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/utils'
@@ -13,8 +14,9 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ExportSuppliesSection } from './export-supplies-section'
 import { FileSpreadsheet, FileText, XIcon } from 'lucide-react'
-import type { CycleCell } from '@/types'
+import type { CycleCell, SupplySummary } from '@/types'
 
 
 interface CycleExportDialogProps {
@@ -41,6 +43,20 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
       localStorage.setItem('cycle-export-include-title', v ? 'true' : 'false')
     }
   }
+
+  const [includeSupplies, setIncludeSupplies] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cycle-export-include-supplies') === 'true'
+    }
+    return false
+  })
+  const handleIncludeSuppliesChange = (v: boolean) => {
+    setIncludeSupplies(v)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cycle-export-include-supplies', v ? 'true' : 'false')
+    }
+  }
+  const [supplySummaries, setSupplySummaries] = useState<SupplySummary[]>([])
 
   const displayCells: CycleCell[] = useMemo(() => {
     if (!cycle?.cycle_drugs) return []
@@ -77,6 +93,11 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
     return adjustDeltasForSkippedCells(base, displayCells, cycle.cycle_drugs as any)
   }, [cycle, allDrugs, displayCells])
 
+  const injectionEventCount = useMemo(() => {
+    if (!cycle?.cycle_drugs) return 0
+    return countInjectionEvents(displayCells, cycle.cycle_drugs as any)
+  }, [displayCells, cycle])
+
   const buildPdfTitle = () => {
     if (!cycle) return 'Cycle'
     const personName = (cycle as any).person?.nickname || 'Unknown'
@@ -99,13 +120,15 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
   const handleXLSXExport = () => {
     if (!cycle) return
     const personName = (cycle as any).person?.nickname || 'Unknown'
-    exportScheduleToXLSX(cycle.name || `${personName} Cycle`, personName, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date)
+    const supplyArg = includeSupplies && supplySummaries.length > 0 ? supplySummaries : undefined
+    exportScheduleToXLSX(cycle.name || `${personName} Cycle`, personName, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date, supplyArg)
   }
 
   const handlePDFExport = () => {
     if (!cycle) return
     const title = buildPdfTitle()
-    exportScheduleToPDF(title, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date, includeTitle)
+    const supplyArg = includeSupplies && supplySummaries.length > 0 ? supplySummaries : undefined
+    exportScheduleToPDF(title, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date, includeTitle, supplyArg)
   }
 
   return (
@@ -194,6 +217,15 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                 </tbody>
               </table>
             </div>
+
+            <ExportSuppliesSection
+              cycleId={id}
+              totalWeeks={cycle.total_weeks}
+              injectionEventCount={injectionEventCount}
+              enabled={includeSupplies}
+              onEnabledChange={handleIncludeSuppliesChange}
+              onSummariesChange={setSupplySummaries}
+            />
 
             {inventoryDeltas.length > 0 && (
               <div className="rounded-md border">

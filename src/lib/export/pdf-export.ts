@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/utils'
-import type { CycleCell, DrugInventoryDelta } from '@/types'
+import type { CycleCell, DrugInventoryDelta, SupplySummary } from '@/types'
 import { loadCJKFont } from './pdf-fonts'
 
 // Split "DrugName 0.8ml" or "DrugName 30mg (3)" into [name, dose]
@@ -36,7 +36,8 @@ export async function exportScheduleToPDF(
   cells: CycleCell[],
   deltas?: DrugInventoryDelta[],
   startDate?: string | null,
-  includeTitle: boolean = true
+  includeTitle: boolean = true,
+  supplies?: SupplySummary[]
 ) {
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -274,93 +275,99 @@ export async function exportScheduleToPDF(
     },
   })
 
-  // Drug stats table — placed on same page if room, else new page
-  if (deltas && deltas.length > 0) {
+  // Drug stats + supplies tables — drug stats on the left, supplies (其他) as one
+  // additional column on the right (kept side-by-side). Whole section is placed
+  // on the same page if room, else pushed to a fresh page.
+  const hasDeltas = !!deltas && deltas.length > 0
+  const hasSupplies = !!supplies && supplies.length > 0
+
+  if (hasDeltas || hasSupplies) {
     const statsHeaders = hasCJK ? ['藥物', '需求量'] : ['Drug', 'Needed']
-    const groups = groupDeltasByCategory(deltas)
+    const supplyHeaders = hasCJK ? ['用具', '數量'] : ['Item', 'Qty']
+
+    // Build drug stats body
     const statsBody: (string | { content: string; colSpan: number; styles: Record<string, unknown> })[][] = []
-    for (const group of groups) {
-      // Category header row — spans both columns, centered
-      statsBody.push([{
-        content: group.label,
-        colSpan: 2,
-        styles: {
-          halign: 'center' as const,
-          fontStyle: 'bold' as const,
-          fillColor: [240, 240, 240],
-          textColor: [80, 80, 80],
-        },
-      }])
-      for (const d of group.items) {
-        const isE3D = d.ester_type === 'E3D'
-        const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
-        const needed = isOral
-          ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
-          : isE3D
-            ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
-            : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`
-        statsBody.push([d.drug_name, needed])
+    if (hasDeltas) {
+      const groups = groupDeltasByCategory(deltas!)
+      for (const group of groups) {
+        statsBody.push([{
+          content: group.label,
+          colSpan: 2,
+          styles: {
+            halign: 'center' as const,
+            fontStyle: 'bold' as const,
+            fillColor: [240, 240, 240],
+            textColor: [80, 80, 80],
+          },
+        }])
+        for (const d of group.items) {
+          const isE3D = d.ester_type === 'E3D'
+          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+          const needed = isOral
+            ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+            : isE3D
+              ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
+              : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`
+          statsBody.push([d.drug_name, needed])
+        }
       }
     }
+    const supplyBody: string[][] = hasSupplies
+      ? supplies!.map((s) => [s.name, `${s.quantity} ${s.unit}`])
+      : []
 
-    // Place the stats table ~25mm below the schedule (gives a visible 1-row gap).
-    // If the schedule fills most of the current page, push the entire stats section
-    // (title + table) to a fresh page so it never starts in a sliver of leftover space.
-    // Multi-column layout (up to 3 cols) only kicks in when even a fresh page can't
-    // hold all rows in one column. Category headers are kept together with their drugs.
     const rowHeight = 8.5
     const headerHeight = 10
     const titleHeight = 6
     const titleToTableGap = 5
     const bottomMargin = 20
     const topMarginFreshPage = 15
-    const maxColumns = 3
     const columnGap = 8
+    // When supplies are present, reserve one column for them and cap drug cols at 2.
+    const drugMaxCols = hasSupplies ? 2 : 3
 
     const pageHeight = doc.internal.pageSize.height
     const scheduleEndY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 20
 
-    // Decide column count based on the capacity of a *fresh* page, not the cramped
-    // remainder below the schedule — otherwise rowsPerCol collapses to 1 and the
-    // 3-column branch fires when there's barely any vertical space.
     const freshPageRows = Math.max(
       1,
       Math.floor(
         (pageHeight - topMarginFreshPage - titleHeight - titleToTableGap - headerHeight - bottomMargin) / rowHeight
       )
     )
-    const totalRows = statsBody.length
-    const numColumns = Math.min(maxColumns, Math.max(1, Math.ceil(totalRows / freshPageRows)))
-    const columnWidth = numColumns === 3 ? 88 : 100
+    const totalDrugRows = statsBody.length
+    const drugCols = hasDeltas
+      ? Math.min(drugMaxCols, Math.max(1, Math.ceil(totalDrugRows / freshPageRows)))
+      : 0
+    const totalRenderCols = drugCols + (hasSupplies ? 1 : 0)
+    const columnWidth = totalRenderCols >= 3 ? 88 : 100
 
     type StatsRow = typeof statsBody[number]
     const isCategoryRow = (row: StatsRow): boolean =>
       row.length === 1 && typeof row[0] === 'object' && row[0] !== null && 'colSpan' in (row[0] as object)
 
     const splitByColumns = (rows: StatsRow[], n: number): StatsRow[][] => {
+      if (n === 0) return []
       const cols: StatsRow[][] = Array.from({ length: n }, () => [])
       const target = Math.ceil(rows.length / n)
       let i = 0
       for (let c = 0; c < n; c++) {
         const tentativeEnd = Math.min(i + target, rows.length)
         let actualEnd = tentativeEnd
-        // Avoid leaving a category header as the last row in a column
         while (actualEnd > i + 1 && isCategoryRow(rows[actualEnd - 1])) actualEnd--
         cols[c] = rows.slice(i, actualEnd)
         i = actualEnd
         if (i >= rows.length) break
       }
-      // Append any leftover rows (due to shrinking) to the last column
       if (i < rows.length) cols[n - 1] = cols[n - 1].concat(rows.slice(i))
       return cols
     }
 
-    const sliced = splitByColumns(statsBody, numColumns)
-    const tallestCol = sliced.reduce((m, c) => Math.max(m, c.length), 0)
+    const sliced = splitByColumns(statsBody, drugCols)
+    const tallestDrugCol = sliced.reduce((m, c) => Math.max(m, c.length), 0)
+    const tallestColAll = Math.max(tallestDrugCol, supplyBody.length)
 
-    // Required height for the tallest column's body + header + small buffer.
-    // If the slot below the schedule can't accommodate it, start a fresh page.
-    const requiredTableHeight = headerHeight + tallestCol * rowHeight + 4
+    const requiredTableHeight = headerHeight + tallestColAll * rowHeight + 4
     const desiredTableStartY = scheduleEndY + 25
     const desiredTitleY = scheduleEndY + 20
     const availableBelowSchedule = pageHeight - desiredTableStartY - bottomMargin
@@ -376,21 +383,35 @@ export async function exportScheduleToPDF(
       tableStartY = desiredTableStartY
     }
 
-    const totalTablesWidth = numColumns * columnWidth + (numColumns - 1) * columnGap
+    const totalTablesWidth = totalRenderCols * columnWidth + (totalRenderCols - 1) * columnGap
     const leftStart = Math.max(10, (pageWidth - totalTablesWidth) / 2)
 
-    // Draw title once, centered above all stats columns
+    // Titles: drug-stats title centered above its column group; supplies title centered above its column.
     doc.setFont(fontName, 'normal', 'bold')
     doc.setFontSize(14)
     doc.setTextColor(0)
-    doc.text(
-      hasCJK ? '藥物用量統計' : 'Drug Stats',
-      leftStart + totalTablesWidth / 2,
-      titleY,
-      { align: 'center' }
-    )
+    if (hasDeltas) {
+      const drugGroupWidth = drugCols * columnWidth + Math.max(0, drugCols - 1) * columnGap
+      doc.text(
+        hasCJK ? '藥物用量統計' : 'Drug Stats',
+        leftStart + drugGroupWidth / 2,
+        titleY,
+        { align: 'center' }
+      )
+    }
+    if (hasSupplies) {
+      const drugGroupWidth = drugCols * columnWidth + Math.max(0, drugCols - 1) * columnGap
+      const supplyLeft = drugCols > 0 ? leftStart + drugGroupWidth + columnGap : leftStart
+      doc.text(
+        hasCJK ? '其他' : 'Others',
+        supplyLeft + columnWidth / 2,
+        titleY,
+        { align: 'center' }
+      )
+    }
 
-    for (let col = 0; col < numColumns; col++) {
+    // Render drug-stats columns
+    for (let col = 0; col < drugCols; col++) {
       if (sliced[col].length === 0) continue
       autoTable(doc, {
         startY: tableStartY,
@@ -415,10 +436,41 @@ export async function exportScheduleToPDF(
           0: { cellWidth: columnWidth * 0.4, fontStyle: 'bold', textColor: [20, 20, 20] },
           1: { cellWidth: columnWidth * 0.6, halign: 'right', textColor: [100, 100, 100] },
         },
-        styles: {
+        styles: { font: fontName },
+        margin: { left: leftStart + col * (columnWidth + columnGap), right: 0, top: 20 },
+        tableWidth: columnWidth,
+      })
+    }
+
+    // Render supplies column on the right
+    if (hasSupplies) {
+      const drugGroupWidth = drugCols * columnWidth + Math.max(0, drugCols - 1) * columnGap
+      const supplyLeft = drugCols > 0 ? leftStart + drugGroupWidth + columnGap : leftStart
+      autoTable(doc, {
+        startY: tableStartY,
+        head: [supplyHeaders],
+        body: supplyBody,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [40, 40, 40],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          halign: 'center',
+          fontStyle: 'bold',
           font: fontName,
         },
-        margin: { left: leftStart + col * (columnWidth + columnGap), right: 0, top: 20 },
+        bodyStyles: {
+          fontSize: 10,
+          cellPadding: 2.5,
+          font: fontName,
+          textColor: [20, 20, 20],
+        },
+        columnStyles: {
+          0: { cellWidth: columnWidth * 0.55, fontStyle: 'bold', textColor: [20, 20, 20] },
+          1: { cellWidth: columnWidth * 0.45, halign: 'right', textColor: [100, 100, 100] },
+        },
+        styles: { font: fontName },
+        margin: { left: supplyLeft, right: 0, top: 20 },
         tableWidth: columnWidth,
       })
     }

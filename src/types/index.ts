@@ -198,3 +198,33 @@ export interface DrugInventoryDelta {
   tabs_per_box: number | null
   deficit: number // negative = shortage
 }
+
+// ==================== Supplies ====================
+export type SupplyRuleType = 'per_injection' | 'per_day' | 'per_week' | 'fixed'
+
+export interface Supply {
+  id: string
+  name: string
+  unit: string
+  rule_type: SupplyRuleType
+  rule_value: number
+  is_system: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CycleSupply {
+  id: string
+  cycle_id: string
+  supply_id: string
+  override_quantity: number | null
+  created_at: string
+}
+
+// Final row passed to export functions: quantity is auto-computed unless overridden.
+export interface SupplySummary {
+  name: string
+  unit: string
+  quantity: number
+}
