@@ -47,6 +47,8 @@ interface Props {
   injectionEventCount: number
   enabled: boolean
   onEnabledChange: (v: boolean) => void
+  overrides: Record<string, string>
+  onOverridesChange: (next: Record<string, string>) => void
 }
 
 export function ExportSuppliesSection({
@@ -55,6 +57,8 @@ export function ExportSuppliesSection({
   injectionEventCount,
   enabled,
   onEnabledChange,
+  overrides,
+  onOverridesChange,
 }: Props) {
   const { data: suppliesData } = useSupplies()
   const { data: cycleSuppliesData } = useCycleSupplies(cycleId)
@@ -80,31 +84,56 @@ export function ExportSuppliesSection({
 
   const handleToggleSupply = (s: Supply, checked: boolean) => {
     if (checked) {
-      upsert.mutate({ cycle_id: cycleId, supply_id: s.id, override_quantity: null })
+      upsert.mutate({ cycle_id: cycleId, supply_id: s.id })
     } else {
       removeSel.mutate({ cycle_id: cycleId, supply_id: s.id })
+      // Clear the in-memory override too — un-checking discards any tweak
+      // from this dialog session.
+      if (s.id in overrides) {
+        const { [s.id]: _omit, ...rest } = overrides
+        onOverridesChange(rest)
+      }
     }
   }
 
-  const handleOverrideChange = (s: Supply, raw: string) => {
-    const val = raw.trim() === '' ? null : Number(raw)
-    upsert.mutate({ cycle_id: cycleId, supply_id: s.id, override_quantity: val })
+  const handleOverrideChange = (id: string, raw: string) => {
+    onOverridesChange({ ...overrides, [id]: raw })
   }
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/supply-id', id)
     e.dataTransfer.effectAllowed = 'move'
-    // Use the row container (the closest [data-supply-row]) as the drag ghost
-    // so the user sees the whole row floating translucently — not just the
-    // tiny grip icon. Without this, the browser's drag image is the handle.
+    // Build a clean drag image from a clone of the row, placed off-screen
+    // with an opaque background. Using the live row directly is unreliable:
+    // - Chrome captures the drag image after the dragstart handler returns,
+    //   which is also when React commits state from this event. If we dim
+    //   the source row, the captured image is dim too.
+    // - When the source row has opacity-40, Chrome alpha-composites the
+    //   layers behind it (schedule cells, drug stats text) into the drag
+    //   image, producing the "16 週 / 18 顆" bleed-through artifacts.
+    // A detached clone with opacity:1 and a solid bg avoids both issues.
     const row = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-supply-row]')
     if (row) {
       const rect = row.getBoundingClientRect()
-      e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top)
+      const clone = row.cloneNode(true) as HTMLElement
+      clone.style.position = 'absolute'
+      clone.style.top = '-1000px'
+      clone.style.left = '0'
+      clone.style.width = `${rect.width}px`
+      clone.style.opacity = '1'
+      clone.style.background = 'var(--background)'
+      clone.style.padding = '4px 8px'
+      clone.style.border = '1px solid var(--border)'
+      clone.style.borderRadius = '6px'
+      clone.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+      clone.style.pointerEvents = 'none'
+      document.body.appendChild(clone)
+      e.dataTransfer.setDragImage(clone, e.clientX - rect.left, e.clientY - rect.top)
+      // Browser captures synchronously around dragstart's return; remove
+      // on the next tick so we don't pollute the document.
+      setTimeout(() => clone.remove(), 0)
     }
-    // Defer the source-row dimming to the next frame. If we set state here,
-    // React commits opacity-40 before Chrome captures the drag image — and
-    // the captured ghost ends up nearly invisible.
+    // Defer source dim so React doesn't commit opacity-40 before capture.
     requestAnimationFrame(() => setDraggingId(id))
   }
   const handleDragEnd = () => {
@@ -211,8 +240,8 @@ export function ExportSuppliesSection({
                       min={0}
                       className="h-7 w-20 text-sm"
                       placeholder={String(auto)}
-                      value={sel?.override_quantity ?? ''}
-                      onChange={(e) => handleOverrideChange(s, e.target.value)}
+                      value={overrides[s.id] ?? ''}
+                      onChange={(e) => handleOverrideChange(s.id, e.target.value)}
                     />
                     <span className="text-xs w-6">{s.unit}</span>
                   </div>
