@@ -162,6 +162,9 @@ export async function exportScheduleToPDF(
     head: [headers],
     body,
     theme: 'grid',
+    // Keep each week intact — push the whole row to the next page rather than
+    // splitting the row across pages (which produced headerless remainder rows).
+    rowPageBreak: 'avoid',
     headStyles: {
       fillColor: [40, 40, 40],
       textColor: [255, 255, 255],
