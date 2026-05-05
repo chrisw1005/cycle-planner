@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyPassword, createSessionToken, COOKIE_NAME } from '@/lib/auth'
+import { resolveTenantByHost } from '@/lib/tenant'
 
 export async function POST(request: NextRequest) {
   const { username, password } = await request.json()
@@ -9,7 +10,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '帳號和密碼為必填' }, { status: 400 })
   }
 
-  // Query accounts table directly with service role (bypasses RLS)
+  // Resolve tenant from host. Tenant-scoped login: an account is only valid
+  // on the domain that maps to its tenant.
+  const tenant = await resolveTenantByHost(request.headers.get('host'))
+  if (!tenant) {
+    return NextResponse.json({ error: '此網域尚未啟用，請聯絡系統管理員' }, { status: 403 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -19,8 +26,9 @@ export async function POST(request: NextRequest) {
   const { data: account, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('tenant_id', tenant.id)
     .eq('username', username.toLowerCase().trim())
-    .single()
+    .maybeSingle()
 
   if (error || !account) {
     return NextResponse.json({ error: '帳號或密碼錯誤' }, { status: 401 })
@@ -31,15 +39,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '帳號或密碼錯誤' }, { status: 401 })
   }
 
-  // Create JWT
   const token = await createSessionToken({
     sub: account.id,
     username: account.username,
     display_name: account.display_name,
     role: account.role,
+    tenant_id: tenant.id,
+    tenant_slug: tenant.slug,
   })
 
-  // Check if user already has passkeys registered
   const { count } = await supabase
     .from('webauthn_credentials')
     .select('id', { count: 'exact', head: true })
@@ -51,6 +59,7 @@ export async function POST(request: NextRequest) {
     display_name: account.display_name,
     role: account.role,
     has_passkeys: (count ?? 0) > 0,
+    tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
   })
 
   response.cookies.set(COOKIE_NAME, token, {
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 7 * 24 * 60 * 60,
   })
 
   return response

@@ -2,14 +2,17 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTenant } from '@/hooks/use-tenant'
 import type { CycleTemplate, CycleFormData } from '@/types'
 import { toast } from 'sonner'
 
 const supabase = createClient()
 
 export function useTemplates() {
+  const { tenantId } = useTenant()
   return useQuery<CycleTemplate[]>({
-    queryKey: ['cycle-templates'],
+    queryKey: ['cycle-templates', tenantId],
+    enabled: !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cycle_templates')
@@ -20,6 +23,7 @@ export function useTemplates() {
             drug:drugs(id, name, concentration, primary_category, ester_type, unit)
           )
         `)
+        .eq('tenant_id', tenantId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -29,6 +33,7 @@ export function useTemplates() {
 
 export function useSaveAsTemplate() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
   return useMutation({
     mutationFn: async ({
       name,
@@ -50,15 +55,17 @@ export function useSaveAsTemplate() {
         end_week: number
       }[]
     }) => {
+      if (!tenantId) throw new Error('Tenant not resolved')
       const { data: template, error: templateError } = await supabase
         .from('cycle_templates')
-        .insert({ name, description: description ?? null, total_weeks })
+        .insert({ name, description: description ?? null, total_weeks, tenant_id: tenantId })
         .select()
         .single()
       if (templateError) throw templateError
 
       if (drugs.length > 0) {
         const templateDrugs = drugs.map((d) => ({
+          tenant_id: tenantId,
           template_id: template.id,
           drug_id: d.drug_id,
           weekly_dose: d.weekly_dose ?? null,
@@ -101,6 +108,7 @@ export function useUpdateTemplate() {
 
 export function useAddTemplateDrug() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
   return useMutation({
     mutationFn: async (drug: {
       template_id: string
@@ -113,7 +121,12 @@ export function useAddTemplateDrug() {
       start_week: number
       end_week: number
     }) => {
-      const { data, error } = await supabase.from('cycle_template_drugs').insert(drug).select('*, drug:drugs(id, name, concentration, primary_category, ester_type, unit)').single()
+      if (!tenantId) throw new Error('Tenant not resolved')
+      const { data, error } = await supabase
+        .from('cycle_template_drugs')
+        .insert({ ...drug, tenant_id: tenantId })
+        .select('*, drug:drugs(id, name, concentration, primary_category, ester_type, unit)')
+        .single()
       if (error) throw error
       return data
     },
@@ -155,6 +168,7 @@ export function useDeleteTemplate() {
 
 export function useCreateCycleFromTemplate() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
   return useMutation({
     mutationFn: async ({
       cycle,
@@ -163,9 +177,10 @@ export function useCreateCycleFromTemplate() {
       cycle: Omit<CycleFormData, 'created_at' | 'updated_at'>
       templateId: string
     }) => {
+      if (!tenantId) throw new Error('Tenant not resolved')
       const { data: newCycle, error: cycleError } = await supabase
         .from('cycles')
-        .insert(cycle)
+        .insert({ ...cycle, tenant_id: tenantId })
         .select()
         .single()
       if (cycleError) throw cycleError
@@ -173,12 +188,14 @@ export function useCreateCycleFromTemplate() {
       const { data: templateDrugs, error: drugsError } = await supabase
         .from('cycle_template_drugs')
         .select('*')
+        .eq('tenant_id', tenantId)
         .eq('template_id', templateId)
       if (drugsError) throw drugsError
 
       if (templateDrugs && templateDrugs.length > 0) {
-        const cycleDrugs = templateDrugs.map(({ id: _id, template_id: _tid, created_at: _ca, ...rest }) => ({
+        const cycleDrugs = templateDrugs.map(({ id: _id, template_id: _tid, tenant_id: _tt, created_at: _ca, ...rest }) => ({
           ...rest,
+          tenant_id: tenantId,
           cycle_id: newCycle.id,
         }))
         const { error: insertError } = await supabase.from('cycle_drugs').insert(cycleDrugs)

@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling state
+.serena/
+.superpowers/
+.mcp.json
+
+# database backups (don't commit potentially-sensitive dumps)
+/backups/
+
+# supabase local cli state
+/supabase/.temp/

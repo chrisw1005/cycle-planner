@@ -141,6 +141,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       if (sourceCell) {
         movedTargets.push({
           id: `moved-${move.cycleDrugId}-${move.toWeek}-${move.toDay}`,
+          tenant_id: cycle?.tenant_id ?? '',
           cycle_id: id,
           cycle_drug_id: sourceCell.cycle_drug_id,
           week_number: move.toWeek,
@@ -168,6 +169,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       const skipKey = cellKey
       baseCells.push({
         id: `gen-${i}`,
+        tenant_id: cycle?.tenant_id ?? '',
         cycle_id: id,
         cycle_drug_id: cell.cycle_drug_id,
         week_number: cell.week_number,

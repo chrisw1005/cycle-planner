@@ -3,6 +3,7 @@ import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSessionToken, COOKIE_NAME } from '@/lib/auth'
 import { rpID, origin } from '@/lib/webauthn'
+import { resolveTenantByHost, getTenantById } from '@/lib/tenant'
 
 export async function POST(request: NextRequest) {
   const challenge = request.cookies.get('webauthn_challenge')?.value
@@ -60,12 +61,26 @@ export async function POST(request: NextRequest) {
 
   const account = credential.account
 
+  // Tenant guard: a passkey can only sign you in on the host that maps to its
+  // account's tenant. Otherwise a stolen passkey could be used cross-tenant.
+  const hostTenant = await resolveTenantByHost(request.headers.get('host'))
+  if (!hostTenant || hostTenant.id !== account.tenant_id) {
+    return NextResponse.json({ error: '此網域與帳號 tenant 不符' }, { status: 403 })
+  }
+
+  const tenant = await getTenantById(account.tenant_id)
+  if (!tenant) {
+    return NextResponse.json({ error: 'Tenant 已不存在' }, { status: 500 })
+  }
+
   // Create JWT session (same as password login)
   const token = await createSessionToken({
     sub: account.id,
     username: account.username,
     display_name: account.display_name,
     role: account.role,
+    tenant_id: tenant.id,
+    tenant_slug: tenant.slug,
   })
 
   const response = NextResponse.json({
@@ -73,6 +88,7 @@ export async function POST(request: NextRequest) {
     username: account.username,
     display_name: account.display_name,
     role: account.role,
+    tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
   })
 
   response.cookies.set(COOKIE_NAME, token, {

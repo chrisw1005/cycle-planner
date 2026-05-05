@@ -2,14 +2,17 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTenant } from '@/hooks/use-tenant'
 import type { Person, PersonFormData } from '@/types'
 import { toast } from 'sonner'
 
 const supabase = createClient()
 
 export function usePeople() {
+  const { tenantId } = useTenant()
   return useQuery<Person[]>({
-    queryKey: ['people'],
+    queryKey: ['people', tenantId],
+    enabled: !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('people')
@@ -17,9 +20,9 @@ export function usePeople() {
           *,
           cycles(id, status, start_date, created_at)
         `)
+        .eq('tenant_id', tenantId!)
         .order('nickname')
       if (error) throw error
-      // Compute last_cycle_date
       return data.map((p: any) => ({
         ...p,
         last_cycle_date: p.cycles?.length
@@ -31,8 +34,10 @@ export function usePeople() {
 }
 
 export function usePerson(id: string) {
+  const { tenantId } = useTenant()
   return useQuery<Person>({
-    queryKey: ['people', id],
+    queryKey: ['people', tenantId, id],
+    enabled: !!id && !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('people')
@@ -46,6 +51,7 @@ export function usePerson(id: string) {
             )
           )
         `)
+        .eq('tenant_id', tenantId!)
         .eq('id', id)
         .single()
       if (error) throw error
@@ -56,15 +62,16 @@ export function usePerson(id: string) {
         ),
       }
     },
-    enabled: !!id,
   })
 }
 
 export function useCreatePerson() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
   return useMutation({
     mutationFn: async (person: Omit<PersonFormData, 'needs_cycle' | 'cycle_goal_notes'> & { needs_cycle?: boolean; cycle_goal_notes?: string | null }) => {
-      const { data, error } = await supabase.from('people').insert(person).select().single()
+      if (!tenantId) throw new Error('Tenant not resolved')
+      const { data, error } = await supabase.from('people').insert({ ...person, tenant_id: tenantId }).select().single()
       if (error) throw error
       return data
     },
@@ -80,13 +87,15 @@ export function useUpdatePerson() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...person }: Partial<Person> & { id: string }) => {
-      const { data, error } = await supabase.from('people').update(person).eq('id', id).select().single()
+      // tenant_id is immutable; never include it in updates.
+      const { tenant_id: _drop, ...rest } = person as any
+      const { data, error } = await supabase.from('people').update(rest).eq('id', id).select().single()
       if (error) throw error
       return data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['people'] })
-      queryClient.invalidateQueries({ queryKey: ['people', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['people', data.tenant_id, data.id] })
       toast.success('人員已更新')
     },
     onError: (error) => toast.error('更新失敗', { description: error.message }),

@@ -81,6 +81,7 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
     const generated = generateAllCells(cycle.cycle_drugs as any, cycle.total_weeks, overrides)
     return generated.map((cell, i) => ({
       id: `gen-${i}`,
+      tenant_id: cycle.tenant_id,
       cycle_id: id,
       cycle_drug_id: cell.cycle_drug_id,
       week_number: cell.week_number,

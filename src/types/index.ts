@@ -1,7 +1,24 @@
+// ==================== Tenants ====================
+export interface Tenant {
+  id: string
+  slug: string
+  name: string
+  primary_domain: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Lightweight tenant info attached to sessions / contexts
+export interface TenantInfo {
+  id: string
+  slug: string
+  name: string
+}
+
 // ==================== Auth & Profile ====================
 export type UserRole = 'developer' | 'admin' | 'viewer'
 
-// Supabase Auth profile (developer only)
+// Supabase Auth profile (developer only — global, not tenant-bound)
 export interface Profile {
   id: string
   email: string
@@ -11,9 +28,10 @@ export interface Profile {
   updated_at: string
 }
 
-// Self-managed accounts (admin/viewer)
+// Self-managed accounts (admin/viewer) — tenant-scoped
 export interface Account {
   id: string
+  tenant_id: string
   username: string
   display_name: string
   role: 'admin' | 'viewer'
@@ -21,12 +39,14 @@ export interface Account {
   updated_at: string
 }
 
-// JWT payload for admin/viewer sessions
+// JWT payload for admin/viewer sessions (tenant-bound)
 export interface SessionPayload {
   sub: string       // account id
   username: string
   display_name: string
   role: 'admin' | 'viewer'
+  tenant_id: string
+  tenant_slug: string
   iat: number
   exp: number
 }
@@ -34,6 +54,7 @@ export interface SessionPayload {
 // ==================== People ====================
 export interface Person {
   id: string
+  tenant_id: string
   nickname: string
   height: number | null
   weight: number | null
@@ -49,7 +70,7 @@ export interface Person {
   cycles?: Cycle[]
 }
 
-export type PersonFormData = Omit<Person, 'id' | 'created_at' | 'updated_at' | 'last_cycle_date' | 'cycles'>
+export type PersonFormData = Omit<Person, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'last_cycle_date' | 'cycles'>
 
 // ==================== Drugs ====================
 export type PrimaryCategory = 'Injectable' | 'Oral' | 'PCT'
@@ -71,6 +92,7 @@ export interface DrugTemplate {
 
 export interface Drug {
   id: string
+  tenant_id: string
   template_id: string | null
   name: string
   concentration: number
@@ -88,13 +110,14 @@ export interface Drug {
   template?: DrugTemplate
 }
 
-export type DrugFormData = Omit<Drug, 'id' | 'created_at' | 'updated_at' | 'template'>
+export type DrugFormData = Omit<Drug, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'template'>
 
 // ==================== Cycles ====================
 export type CycleStatus = 'Scheduled' | 'Planned' | 'Testing' | 'Completed' | 'Archived'
 
 export interface Cycle {
   id: string
+  tenant_id: string
   person_id: string
   name: string | null
   total_weeks: number
@@ -108,11 +131,12 @@ export interface Cycle {
   cycle_drugs?: CycleDrug[]
 }
 
-export type CycleFormData = Omit<Cycle, 'id' | 'created_at' | 'updated_at' | 'person' | 'cycle_drugs'>
+export type CycleFormData = Omit<Cycle, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'person' | 'cycle_drugs'>
 
 // ==================== Cycle Drugs ====================
 export interface CycleDrug {
   id: string
+  tenant_id: string
   cycle_id: string
   drug_id: string
   weekly_dose: number | null
@@ -129,11 +153,12 @@ export interface CycleDrug {
   cells?: CycleCell[]
 }
 
-export type CycleDrugFormData = Omit<CycleDrug, 'id' | 'created_at' | 'drug' | 'cells'>
+export type CycleDrugFormData = Omit<CycleDrug, 'id' | 'tenant_id' | 'created_at' | 'drug' | 'cells'>
 
 // ==================== Cycle Templates ====================
 export interface CycleTemplate {
   id: string
+  tenant_id: string
   name: string
   description: string | null
   total_weeks: number
@@ -145,6 +170,7 @@ export interface CycleTemplate {
 
 export interface CycleTemplateDrug {
   id: string
+  tenant_id: string
   template_id: string
   drug_id: string
   weekly_dose: number | null
@@ -162,6 +188,7 @@ export interface CycleTemplateDrug {
 // ==================== Cycle Cells ====================
 export interface CycleCell {
   id: string
+  tenant_id: string
   cycle_id: string
   cycle_drug_id: string
   week_number: number
@@ -216,6 +243,7 @@ export interface Supply {
 
 export interface CycleSupply {
   id: string
+  tenant_id: string
   cycle_id: string
   supply_id: string
   override_quantity: number | null

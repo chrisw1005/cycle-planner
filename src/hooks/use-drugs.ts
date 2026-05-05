@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTenant } from '@/hooks/use-tenant'
 import type { Drug, DrugTemplate, DrugFormData } from '@/types'
 import { toast } from 'sonner'
 
@@ -24,12 +25,15 @@ export function useDrugTemplates() {
 }
 
 export function useBrandSuggestions() {
+  const { tenantId } = useTenant()
   return useQuery<string[]>({
-    queryKey: ['brand-suggestions'],
+    queryKey: ['brand-suggestions', tenantId],
+    enabled: !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('drugs')
         .select('brand')
+        .eq('tenant_id', tenantId!)
         .not('brand', 'is', null)
         .order('brand')
       if (error) throw error
@@ -39,12 +43,15 @@ export function useBrandSuggestions() {
 }
 
 export function useDrugs() {
+  const { tenantId } = useTenant()
   return useQuery<Drug[]>({
-    queryKey: ['drugs'],
+    queryKey: ['drugs', tenantId],
+    enabled: !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('drugs')
         .select('*, template:drug_templates(*)')
+        .eq('tenant_id', tenantId!)
         .order('primary_category')
         .order('name')
       if (error) throw error
@@ -54,29 +61,33 @@ export function useDrugs() {
 }
 
 export function useDrug(id: string) {
+  const { tenantId } = useTenant()
   return useQuery<Drug>({
-    queryKey: ['drugs', id],
+    queryKey: ['drugs', tenantId, id],
+    enabled: !!id && !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('drugs')
         .select('*, template:drug_templates(*)')
+        .eq('tenant_id', tenantId!)
         .eq('id', id)
         .single()
       if (error) throw error
       return data
     },
-    enabled: !!id,
   })
 }
 
 export function useCreateDrug() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
 
   return useMutation({
     mutationFn: async (drug: Omit<DrugFormData, 'created_at' | 'updated_at'>) => {
+      if (!tenantId) throw new Error('Tenant not resolved')
       const { data, error } = await supabase
         .from('drugs')
-        .insert(drug)
+        .insert({ ...drug, tenant_id: tenantId })
         .select()
         .single()
       if (error) throw error
@@ -97,9 +108,10 @@ export function useUpdateDrug() {
 
   return useMutation({
     mutationFn: async ({ id, ...drug }: Partial<Drug> & { id: string }) => {
+      const { tenant_id: _drop, ...rest } = drug as any
       const { data, error } = await supabase
         .from('drugs')
-        .update(drug)
+        .update(rest)
         .eq('id', id)
         .select()
         .single()
@@ -108,7 +120,7 @@ export function useUpdateDrug() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['drugs'] })
-      queryClient.invalidateQueries({ queryKey: ['drugs', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['drugs', data.tenant_id, data.id] })
       toast.success('藥品已更新')
     },
     onError: (error) => {
