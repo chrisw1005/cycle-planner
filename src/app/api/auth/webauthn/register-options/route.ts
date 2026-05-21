@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateRegistrationOptions, type AuthenticatorTransportFuture } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifySessionToken, COOKIE_NAME } from '@/lib/auth'
-import { rpName, rpID } from '@/lib/webauthn'
+import { rpName, rpIdFromRequest } from '@/lib/webauthn'
 
 export async function POST(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const options = await generateRegistrationOptions({
     rpName,
-    rpID,
+    rpID: rpIdFromRequest(request),
     userName: session.username,
     userDisplayName: session.display_name,
     userID: new TextEncoder().encode(session.sub),

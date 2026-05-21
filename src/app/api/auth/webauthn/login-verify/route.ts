@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSessionToken, COOKIE_NAME } from '@/lib/auth'
-import { rpID, origin } from '@/lib/webauthn'
+import { rpIdFromRequest, originsFromHost } from '@/lib/webauthn'
 import { resolveTenantByHost, getTenantById } from '@/lib/tenant'
 
 export async function POST(request: NextRequest) {
@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
     verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: originsFromHost(request),
+      expectedRPID: rpIdFromRequest(request),
       credential: {
         id: credential.id,
         publicKey: Buffer.from(credential.public_key, 'base64'),

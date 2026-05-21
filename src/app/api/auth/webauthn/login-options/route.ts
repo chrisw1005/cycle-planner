@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateAuthenticationOptions, type AuthenticatorTransportFuture } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
-import { rpID } from '@/lib/webauthn'
+import { rpIdFromRequest } from '@/lib/webauthn'
+import { resolveTenantByHost } from '@/lib/tenant'
 
 export async function POST(request: NextRequest) {
   const { username } = await request.json().catch(() => ({ username: undefined }))
@@ -12,15 +13,21 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
+  const rpID = rpIdFromRequest(request)
   let allowCredentials: { id: string; transports?: AuthenticatorTransportFuture[] }[] = []
 
   if (username) {
-    // Get account by username
-    const { data: account } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('username', username.toLowerCase().trim())
-      .single()
+    // Scope the lookup to the host's tenant — usernames are unique per tenant,
+    // so a bare username match could resolve the wrong account.
+    const tenant = await resolveTenantByHost(request.headers.get('host'))
+    const { data: account } = tenant
+      ? await supabase
+          .from('accounts')
+          .select('id')
+          .eq('tenant_id', tenant.id)
+          .eq('username', username.toLowerCase().trim())
+          .maybeSingle()
+      : { data: null }
 
     if (account) {
       const { data: creds } = await supabase

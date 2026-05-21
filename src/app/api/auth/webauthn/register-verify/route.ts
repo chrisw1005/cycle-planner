@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifySessionToken, COOKIE_NAME } from '@/lib/auth'
-import { rpID, origin } from '@/lib/webauthn'
+import { rpIdFromRequest, originsFromHost } from '@/lib/webauthn'
 
 export async function POST(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
   const verification = await verifyRegistrationResponse({
     response: body,
     expectedChallenge: challenge,
-    expectedOrigin: origin,
-    expectedRPID: rpID,
+    expectedOrigin: originsFromHost(request),
+    expectedRPID: rpIdFromRequest(request),
   })
 
   if (!verification.verified || !verification.registrationInfo) {
