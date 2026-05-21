@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
       transports: (c.transports || []) as AuthenticatorTransportFuture[],
     })) || [],
     authenticatorSelection: {
-      residentKey: 'preferred',
+      // The login button uses a usernameless (discoverable) flow with empty
+      // allowCredentials, so the passkey MUST be a resident credential or the
+      // browser will find nothing and never prompt for Touch ID.
+      residentKey: 'required',
       userVerification: 'preferred',
     },
   })
