@@ -15,7 +15,12 @@ function getServiceClient() {
 
 function normalizeHost(host: string | null | undefined): string {
   if (!host) return ''
-  return host.toLowerCase().split(':')[0].trim()
+  const bare = host.toLowerCase().split(':')[0].trim()
+  // Treat apex and www as the same site, so a tenant resolves on both
+  // example.com and www.example.com regardless of which way Vercel
+  // redirects between them. Stored primary_domain is canonicalized to
+  // the apex form (see normalizeDomain in the tenants API).
+  return bare.startsWith('www.') ? bare.slice(4) : bare
 }
 
 function isLocalOrPreviewHost(host: string): boolean {

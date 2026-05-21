@@ -25,8 +25,12 @@ async function verifyDeveloper(): Promise<boolean> {
 
 function normalizeDomain(domain: string | null | undefined): string | null {
   if (!domain) return null
-  const trimmed = domain.toLowerCase().trim()
-  return trimmed.length === 0 ? null : trimmed
+  // Canonicalize to bare apex: drop protocol, any path, port, and a leading
+  // www. so host resolution (which also strips www) always matches.
+  let d = domain.toLowerCase().trim()
+  d = d.replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0].trim()
+  if (d.startsWith('www.')) d = d.slice(4)
+  return d.length === 0 ? null : d
 }
 
 export async function GET() {
