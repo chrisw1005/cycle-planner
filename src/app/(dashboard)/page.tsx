@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useDrugs } from '@/hooks/use-drugs'
+import { useTenant } from '@/hooks/use-tenant'
 import { useGlobalInventoryDeficits } from '@/hooks/use-inventory-deficits'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +23,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { tenantId } = useTenant()
   const { data: allDrugs } = useDrugs()
   const { data: globalDeficits } = useGlobalInventoryDeficits()
   const [lowStockThreshold] = useState(() => {
@@ -43,14 +45,15 @@ export default function DashboardPage() {
   const supabase = createClient()
 
   useEffect(() => {
+    if (!tenantId) return
     const fetchStats = async () => {
       const [people, drugs, cycles, needsCycle, lowStock, cycleStatuses] = await Promise.all([
-        supabase.from('people').select('id', { count: 'exact', head: true }),
-        supabase.from('drugs').select('id', { count: 'exact', head: true }),
-        supabase.from('cycles').select('id', { count: 'exact', head: true }),
-        supabase.from('people').select('id', { count: 'exact', head: true }).eq('needs_cycle', true),
-        supabase.from('drugs').select('id', { count: 'exact', head: true }).lte('inventory_count', 1),
-        supabase.from('cycles').select('status'),
+        supabase.from('people').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        supabase.from('drugs').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        supabase.from('cycles').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        supabase.from('people').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('needs_cycle', true),
+        supabase.from('drugs').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).lte('inventory_count', 1),
+        supabase.from('cycles').select('status').eq('tenant_id', tenantId),
       ])
 
       const byStatus: Record<string, number> = {}
@@ -71,7 +74,7 @@ export default function DashboardPage() {
     }
 
     fetchStats()
-  }, [])
+  }, [tenantId])
 
   const cards = [
     {
