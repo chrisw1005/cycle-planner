@@ -84,10 +84,60 @@ export function generateCellsForDrug(
       })
       count++
     }
-  } else if (drug.primary_category === 'Injectable' && cycleDrug.weekly_dose) {
-    if (drug.ester_type === 'Long') {
+  } else if (
+    drug.primary_category === 'Injectable' &&
+    (cycleDrug.weekly_dose ||
+      cycleDrug.schedule_mode === 'custom_days' ||
+      cycleDrug.schedule_mode === 'custom_interval')
+  ) {
+    if (
+      cycleDrug.schedule_mode === 'custom_days' &&
+      cycleDrug.custom_days?.length &&
+      cycleDrug.daily_dose
+    ) {
+      // Custom days: per-administration dose on selected weekdays, every week
+      const mlPerInjection = roundMl(cycleDrug.daily_dose / drug.concentration)
+
+      for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
+        for (const day of [...cycleDrug.custom_days].sort((a, b) => a - b)) {
+          cells.push({
+            cycle_drug_id: cycleDrug.id,
+            week_number: week,
+            day_of_week: day,
+            display_value: `${shortName(drug.name, drug.concentration)} ${mlPerInjection}ml`,
+            ml_amount: mlPerInjection,
+            is_manual_override: false,
+            is_skipped: false,
+          })
+        }
+      }
+    } else if (
+      cycleDrug.schedule_mode === 'custom_interval' &&
+      cycleDrug.interval_days &&
+      cycleDrug.daily_dose
+    ) {
+      // Custom interval: per-administration dose every N days from start
+      const mlPerInjection = roundMl(cycleDrug.daily_dose / drug.concentration)
+      const N = cycleDrug.interval_days
+      const absStart = (cycleDrug.start_week - 1) * 7 + 1
+
+      for (let absDay = absStart; ; absDay += N) {
+        const week = Math.ceil(absDay / 7)
+        if (week > Math.min(cycleDrug.end_week, totalWeeks)) break
+        const day = ((absDay - 1) % 7) + 1
+        cells.push({
+          cycle_drug_id: cycleDrug.id,
+          week_number: week,
+          day_of_week: day,
+          display_value: `${shortName(drug.name, drug.concentration)} ${mlPerInjection}ml`,
+          ml_amount: mlPerInjection,
+          is_manual_override: false,
+          is_skipped: false,
+        })
+      }
+    } else if (drug.ester_type === 'Long') {
       // Rule A: Long Ester — Day 1 & Day 4
-      const perInjection = cycleDrug.weekly_dose / 2
+      const perInjection = cycleDrug.weekly_dose! / 2
       const mlPerInjection = roundMl(perInjection / drug.concentration)
 
       for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
@@ -115,7 +165,7 @@ export function generateCellsForDrug(
     } else if (drug.ester_type === 'Short') {
       // Rule B: Short Ester — EOD alternating across 2 weeks
       // 3.5 injections per week → 7 injections per 2 weeks
-      const perInjection = cycleDrug.weekly_dose / 3.5
+      const perInjection = cycleDrug.weekly_dose! / 3.5
       const mlPerInjection = roundMl(perInjection / drug.concentration)
 
       for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week += 2) {
@@ -203,6 +253,37 @@ export function generateCellsForDrug(
           })
         }
       }
+    } else if (mode === 'custom_days' && cycleDrug.custom_days?.length) {
+      // Custom days: per-administration dose on selected weekdays, every week
+      const tabletsPerDay = roundTablets((cycleDrug.daily_dose || 0) / drug.concentration)
+      const dose = cycleDrug.daily_dose || 0
+
+      for (let week = cycleDrug.start_week; week <= Math.min(cycleDrug.end_week, totalWeeks); week++) {
+        for (const day of [...cycleDrug.custom_days].sort((a, b) => a - b)) {
+          cells.push({
+            cycle_drug_id: cycleDrug.id, week_number: week, day_of_week: day,
+            display_value: `${sName} ${dose}${dUnit} (${tabletsPerDay})`,
+            ml_amount: null, is_manual_override: false, is_skipped: false,
+          })
+        }
+      }
+    } else if (mode === 'custom_interval' && cycleDrug.interval_days) {
+      // Custom interval: per-administration dose every N days from start
+      const tabletsPerDay = roundTablets((cycleDrug.daily_dose || 0) / drug.concentration)
+      const dose = cycleDrug.daily_dose || 0
+      const N = cycleDrug.interval_days
+      const absStart = (cycleDrug.start_week - 1) * 7 + 1
+
+      for (let absDay = absStart; ; absDay += N) {
+        const week = Math.ceil(absDay / 7)
+        if (week > Math.min(cycleDrug.end_week, totalWeeks)) break
+        const day = ((absDay - 1) % 7) + 1
+        cells.push({
+          cycle_drug_id: cycleDrug.id, week_number: week, day_of_week: day,
+          display_value: `${sName} ${dose}${dUnit} (${tabletsPerDay})`,
+          ml_amount: null, is_manual_override: false, is_skipped: false,
+        })
+      }
     } else {
       // Rule C: Daily — dose on all 7 days (default)
       const tabletsPerDay = roundTablets((cycleDrug.daily_dose || 0) / drug.concentration)
@@ -285,6 +366,13 @@ export function getExpectedMl(
   // E3D: any category (e.g. HCG is PCT + E3D)
   if (drug.ester_type === 'E3D' && cycleDrug.injection_ml) {
     return roundMl(cycleDrug.injection_ml)
+  }
+  if (
+    drug.primary_category === 'Injectable' &&
+    (cycleDrug.schedule_mode === 'custom_days' || cycleDrug.schedule_mode === 'custom_interval') &&
+    cycleDrug.daily_dose
+  ) {
+    return roundMl(cycleDrug.daily_dose / drug.concentration)
   }
   if (drug.primary_category !== 'Injectable' || !cycleDrug.weekly_dose) return null
   if (drug.ester_type === 'Long') {

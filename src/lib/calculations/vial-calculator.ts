@@ -31,6 +31,21 @@ export function calculateTotalMl(cycleDrug: CycleDrugWithDrug): number {
     return Math.round(cycleDrug.injection_ml * cycleDrug.total_injections * 100) / 100
   }
 
+  if (drug.primary_category === 'Injectable' && cycleDrug.daily_dose) {
+    if (cycleDrug.schedule_mode === 'custom_days' && cycleDrug.custom_days?.length) {
+      const weeks = cycleDrug.end_week - cycleDrug.start_week + 1
+      const mlPerInjection = Math.round((cycleDrug.daily_dose / drug.concentration) * 100) / 100
+      return Math.round(mlPerInjection * cycleDrug.custom_days.length * weeks * 100) / 100
+    }
+    if (cycleDrug.schedule_mode === 'custom_interval' && cycleDrug.interval_days) {
+      const mlPerInjection = Math.round((cycleDrug.daily_dose / drug.concentration) * 100) / 100
+      const N = cycleDrug.interval_days
+      const absStart = (cycleDrug.start_week - 1) * 7 + 1
+      const count = Math.floor((cycleDrug.end_week * 7 - absStart) / N) + 1
+      return Math.round(mlPerInjection * count * 100) / 100
+    }
+  }
+
   if (drug.primary_category !== 'Injectable' || !cycleDrug.weekly_dose) return 0
   const weeks = cycleDrug.end_week - cycleDrug.start_week + 1
 
@@ -68,6 +83,19 @@ export function calculateTotalTablets(cycleDrug: CycleDrugWithDrug): number {
   if (mode === 'eod') {
     // 3.5 doses per week average
     return Math.round(tabletsPerDay * 3.5 * weeks * 100) / 100
+  }
+
+  if (mode === 'custom_days' && cycleDrug.custom_days?.length && cycleDrug.daily_dose) {
+    const tabletsPerDose = Math.round((cycleDrug.daily_dose / drug.concentration) * 10) / 10
+    return Math.round(tabletsPerDose * cycleDrug.custom_days.length * weeks * 100) / 100
+  }
+
+  if (mode === 'custom_interval' && cycleDrug.interval_days && cycleDrug.daily_dose) {
+    const tabletsPerDose = Math.round((cycleDrug.daily_dose / drug.concentration) * 10) / 10
+    const N = cycleDrug.interval_days
+    const absStart = (cycleDrug.start_week - 1) * 7 + 1
+    const count = Math.floor((cycleDrug.end_week * 7 - absStart) / N) + 1
+    return Math.round(tabletsPerDose * count * 100) / 100
   }
 
   // daily: 7 doses per week
@@ -197,6 +225,35 @@ export function calculateWeeklyUsage(
     return {
       totalMl: Math.round(mlThisWeek * 100) / 100,
       totalMg: Math.round(mlThisWeek * drug.concentration * 100) / 100,
+    }
+  }
+
+  if (drug.primary_category === 'Injectable' && cycleDrug.daily_dose) {
+    if (cycleDrug.schedule_mode === 'custom_days' && cycleDrug.custom_days?.length) {
+      const mlPerInjection = Math.round((cycleDrug.daily_dose / drug.concentration) * 100) / 100
+      const injThisWeek = cycleDrug.custom_days.length
+      return {
+        totalMl: Math.round(mlPerInjection * injThisWeek * 100) / 100,
+        totalMg: Math.round(cycleDrug.daily_dose * injThisWeek * 100) / 100,
+      }
+    }
+    if (cycleDrug.schedule_mode === 'custom_interval' && cycleDrug.interval_days) {
+      const mlPerInjection = Math.round((cycleDrug.daily_dose / drug.concentration) * 100) / 100
+      const N = cycleDrug.interval_days
+      const absStart = (cycleDrug.start_week - 1) * 7 + 1
+      const maxAbsDay = cycleDrug.end_week * 7
+      let injThisWeek = 0
+      for (let absDay = absStart; absDay <= maxAbsDay; absDay += N) {
+        const w = Math.ceil(absDay / 7)
+        if (w === weekNumber) injThisWeek++
+        if (w > weekNumber) break
+      }
+      const mlThisWeek = mlPerInjection * injThisWeek
+      const mgThisWeek = cycleDrug.daily_dose * injThisWeek
+      return {
+        totalMl: Math.round(mlThisWeek * 100) / 100,
+        totalMg: Math.round(mgThisWeek * 100) / 100,
+      }
     }
   }
 

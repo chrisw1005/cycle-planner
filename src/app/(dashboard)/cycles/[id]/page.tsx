@@ -202,7 +202,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   }, [inventoryDeltas, isTesting])
 
   // Handlers
-  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; start_week: number; end_week: number }) => {
+  const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; custom_days?: number[]; interval_days?: number; start_week: number; end_week: number }) => {
     // Auto-expand total weeks if drug end_week exceeds current cycle length
     if (cycle && data.end_week > cycle.total_weeks) {
       updateCycle.mutate({ id, total_weeks: data.end_week })
@@ -215,6 +215,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       injection_ml: data.injection_ml || undefined,
       total_injections: data.total_injections || undefined,
       schedule_mode: data.schedule_mode || undefined,
+      custom_days: data.custom_days || undefined,
+      interval_days: data.interval_days || undefined,
     })
   }, [id, addCycleDrug, cycle, updateCycle])
 
@@ -244,6 +246,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       injection_ml: data.injection_ml || undefined,
       total_injections: data.total_injections || undefined,
       schedule_mode: data.schedule_mode || undefined,
+      custom_days: data.custom_days || undefined,
+      interval_days: data.interval_days || undefined,
     })
   }, [id, removeCycleDrug, updateCycleDrug, addCycleDrug, cycle, updateCycle])
 
@@ -651,6 +655,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
           injection_ml: cd.injection_ml,
           total_injections: cd.total_injections,
           schedule_mode: cd.schedule_mode,
+          custom_days: cd.custom_days,
+          interval_days: cd.interval_days,
           drug: cd.drug ? { name: cd.drug.name } : null,
         })) || []}
       />

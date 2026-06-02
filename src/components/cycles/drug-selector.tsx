@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { getDoseUnit } from '@/lib/utils'
 import type { Drug } from '@/types'
 
@@ -18,6 +19,8 @@ interface AddData {
   total_injections?: number
   vial_count?: number
   schedule_mode?: string
+  custom_days?: number[]
+  interval_days?: number
   start_week: number
   end_week: number
 }
@@ -32,6 +35,8 @@ export interface ExistingCycleDrug {
   injection_ml?: number | null
   total_injections?: number | null
   schedule_mode?: string | null
+  custom_days?: number[] | null
+  interval_days?: number | null
   drug?: { name?: string } | null
 }
 
@@ -61,6 +66,10 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
   const [totalInjections, setTotalInjections] = useState('')
   const [scheduleMode, setScheduleMode] = useState('daily')
   const [weeklyTabs, setWeeklyTabs] = useState('')
+  const [customDays, setCustomDays] = useState<number[]>([])
+  const [intervalDays, setIntervalDays] = useState('2')
+  const [injCustomOn, setInjCustomOn] = useState(false)
+  const [injCustomKind, setInjCustomKind] = useState<'days' | 'interval'>('interval')
   const [startWeek, setStartWeek] = useState('1')
   const [endWeek, setEndWeek] = useState(totalWeeks.toString())
 
@@ -109,6 +118,28 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
         start_week: parseInt(startWeek),
         end_week: computedEnd,
       }
+    } else if (isInjectable && injCustomOn) {
+      return {
+        drug_id: selectedDrugId,
+        weekly_dose: undefined,
+        daily_dose: parseFloat(dailyDose) || undefined,
+        schedule_mode: injCustomKind === 'days' ? 'custom_days' : 'custom_interval',
+        custom_days: injCustomKind === 'days' ? customDays : undefined,
+        interval_days: injCustomKind === 'interval' ? (parseInt(intervalDays) || undefined) : undefined,
+        start_week: parseInt(startWeek),
+        end_week: parseInt(endWeek),
+      }
+    } else if (isOral && (scheduleMode === 'custom_days' || scheduleMode === 'custom_interval')) {
+      return {
+        drug_id: selectedDrugId,
+        weekly_dose: undefined,
+        daily_dose: parseFloat(dailyDose) || undefined,
+        schedule_mode: scheduleMode,
+        custom_days: scheduleMode === 'custom_days' ? customDays : undefined,
+        interval_days: scheduleMode === 'custom_interval' ? (parseInt(intervalDays) || undefined) : undefined,
+        start_week: parseInt(startWeek),
+        end_week: parseInt(endWeek),
+      }
     } else {
       const isSplitWeekly = isOral && scheduleMode === 'split_weekly'
       return {
@@ -131,6 +162,10 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
     setTotalInjections('')
     setScheduleMode('daily')
     setWeeklyTabs('')
+    setCustomDays([])
+    setIntervalDays('2')
+    setInjCustomOn(false)
+    setInjCustomKind('interval')
     setStartWeek('1')
     setEndWeek(totalWeeks.toString())
   }
@@ -171,9 +206,20 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
     setPendingOps(null)
   }
 
+  // Fixed-order weekday labels (index 0 = day number 1 = 一)
+  const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日']
+
   // Calculate preview
   let preview = ''
-  if (selectedDrug && isInjectable && weeklyDose) {
+  if (selectedDrug && isInjectable && injCustomOn && dailyDose) {
+    const ml = Math.round((parseFloat(dailyDose) / selectedDrug.concentration) * 100) / 100
+    if (injCustomKind === 'days') {
+      const days = customDays.slice().sort((a, b) => a - b).map((d) => weekdayLabels[d - 1]).join('、')
+      preview = `每次注射 ${ml}ml (週${days})`
+    } else {
+      preview = `每次注射 ${ml}ml (每 ${intervalDays} 天一次)`
+    }
+  } else if (selectedDrug && isInjectable && weeklyDose) {
     const dose = parseFloat(weeklyDose)
     if (selectedDrug.ester_type === 'Long') {
       const ml = Math.round((dose / 2 / selectedDrug.concentration) * 100) / 100
@@ -206,7 +252,15 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
     preview = `${vials} 瓶 × ${vialMl}ml = ${e3dTotalMl}ml ÷ ${count} 次 = 每次 ${e3dMlPerInjection}ml\n${pattern.join(' → ')}`
   }
   if (selectedDrug && isOral) {
-    if (scheduleMode === 'split_weekly' && weeklyTabs) {
+    if ((scheduleMode === 'custom_days' || scheduleMode === 'custom_interval') && dailyDose) {
+      const tabs = Math.round((parseFloat(dailyDose) / selectedDrug.concentration) * 10) / 10
+      if (scheduleMode === 'custom_days') {
+        const days = customDays.slice().sort((a, b) => a - b).map((d) => weekdayLabels[d - 1]).join('、')
+        preview = `每次 ${dailyDose}${doseUnit} (${tabs} 顆) (週${days})`
+      } else {
+        preview = `每次 ${dailyDose}${doseUnit} (${tabs} 顆) (每 ${intervalDays} 天一次)`
+      }
+    } else if (scheduleMode === 'split_weekly' && weeklyTabs) {
       const wTabs = parseFloat(weeklyTabs)
       const tabsPerDose = Math.round((wTabs / 2) * 10) / 10
       const dosePerDay = Math.round((wTabs * selectedDrug.concentration / 2) * 10) / 10
@@ -222,13 +276,41 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
   }
 
   const isSplitWeekly = isOral && scheduleMode === 'split_weekly'
+  const isOralCustom = isOral && (scheduleMode === 'custom_days' || scheduleMode === 'custom_interval')
   const isDisabled = !selectedDrugId
-    || (isInjectable && !weeklyDose)
-    || (isOral && !isSplitWeekly && !dailyDose)
+    || (isInjectable && injCustomOn && (!dailyDose || (injCustomKind === 'days' ? customDays.length === 0 : !(parseInt(intervalDays) >= 1))))
+    || (isInjectable && !injCustomOn && !weeklyDose)
+    || (isOralCustom && (!dailyDose || (scheduleMode === 'custom_days' ? customDays.length === 0 : !(parseInt(intervalDays) >= 1))))
+    || (isOral && !isSplitWeekly && !isOralCustom && !dailyDose)
     || (isSplitWeekly && !weeklyTabs)
     || (isE3D && (!vialMl || !totalInjections))
 
   const existingDrugIds = existingCycleDrugs?.map(cd => cd.drug_id) || []
+
+  // Inline weekday picker (fixed order: 一=1 .. 日=7)
+  const dayPicker = (
+    <div className="grid grid-cols-7 gap-1">
+      {weekdayLabels.map((label, i) => {
+        const dayNum = i + 1
+        const selected = customDays.includes(dayNum)
+        return (
+          <Button
+            key={dayNum}
+            type="button"
+            size="sm"
+            variant={selected ? 'default' : 'outline'}
+            onClick={() =>
+              setCustomDays((prev) =>
+                prev.includes(dayNum) ? prev.filter((d) => d !== dayNum) : [...prev, dayNum]
+              )
+            }
+          >
+            {label}
+          </Button>
+        )
+      })}
+    </div>
+  )
 
   return (
     <>
@@ -296,16 +378,74 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
             )}
 
             {isInjectable && (
-              <div className="space-y-2">
-                <Label>每週劑量 ({doseUnit}/週) *</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={weeklyDose}
-                  onChange={(e) => setWeeklyDose(e.target.value)}
-                  placeholder="e.g. 360"
-                />
-              </div>
+              <>
+                {injCustomOn ? (
+                  <div className="space-y-2">
+                    <Label>每次劑量 ({doseUnit}/次) *</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={dailyDose}
+                      onChange={(e) => setDailyDose(e.target.value)}
+                      placeholder="e.g. 100"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>每週劑量 ({doseUnit}/週) *</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={weeklyDose}
+                      onChange={(e) => setWeeklyDose(e.target.value)}
+                      placeholder="e.g. 360"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Switch checked={injCustomOn} onCheckedChange={(checked: boolean) => setInjCustomOn(checked)} />
+                  <Label>自訂使用頻率</Label>
+                </div>
+                {injCustomOn && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={injCustomKind === 'days' ? 'default' : 'outline'}
+                        onClick={() => setInjCustomKind('days')}
+                      >
+                        指定星期幾
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={injCustomKind === 'interval' ? 'default' : 'outline'}
+                        onClick={() => setInjCustomKind('interval')}
+                      >
+                        每 N 天
+                      </Button>
+                    </div>
+                    {injCustomKind === 'days' ? (
+                      <div className="space-y-2">
+                        <Label>選擇星期幾 *</Label>
+                        {dayPicker}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>每 N 天注射一次 *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={intervalDays}
+                          onChange={(e) => setIntervalDays(e.target.value)}
+                          placeholder="e.g. 2"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
 
             {isE3D && (
@@ -362,6 +502,8 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
                       <SelectItem value="daily">每日</SelectItem>
                       <SelectItem value="eod">隔日 (EOD)</SelectItem>
                       <SelectItem value="split_weekly">每週固定天 (Day1 & Day4)</SelectItem>
+                      <SelectItem value="custom_days">指定星期幾</SelectItem>
+                      <SelectItem value="custom_interval">每 N 天</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -376,6 +518,36 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
                       placeholder="e.g. 1"
                     />
                   </div>
+                ) : scheduleMode === 'custom_days' || scheduleMode === 'custom_interval' ? (
+                  <>
+                    {scheduleMode === 'custom_days' ? (
+                      <div className="space-y-2">
+                        <Label>選擇星期幾 *</Label>
+                        {dayPicker}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>每 N 天服用一次 *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={intervalDays}
+                          onChange={(e) => setIntervalDays(e.target.value)}
+                          placeholder="e.g. 2"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>每次劑量 ({doseUnit}) *</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={dailyDose}
+                        onChange={(e) => setDailyDose(e.target.value)}
+                        placeholder="e.g. 0.5"
+                      />
+                    </div>
+                  </>
                 ) : (
                   <div className="space-y-2">
                     <Label>{scheduleMode === 'eod' ? `每次劑量 (${doseUnit})` : `每日劑量 (${doseUnit}/天)`} *</Label>
@@ -526,6 +698,8 @@ function computeOverlapOps(overlapping: ExistingCycleDrug[], newData: AddData): 
         injection_ml: existing.injection_ml || undefined,
         total_injections: existing.total_injections || undefined,
         schedule_mode: existing.schedule_mode || undefined,
+        custom_days: existing.custom_days || undefined,
+        interval_days: existing.interval_days || undefined,
         start_week: newEnd + 1,
         end_week: exEnd,
       })
