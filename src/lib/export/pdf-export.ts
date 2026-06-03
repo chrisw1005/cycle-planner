@@ -323,7 +323,7 @@ export async function exportScheduleToPDF(
           const isE3D = d.ester_type === 'E3D'
           const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
           const needed = isOral
-            ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+            ? `${Math.round(d.needed_ml)} ${hasCJK ? '顆' : 'tabs'} (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box, d.package_unit ?? '盒')})`
             : isE3D
               ? `${d.needed_vials} ${hasCJK ? '瓶/劑' : 'vials'}`
               : `${d.needed_ml} ml (${d.needed_vials} ${hasCJK ? '瓶' : 'vials'})`

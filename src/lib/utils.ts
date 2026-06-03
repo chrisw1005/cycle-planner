@@ -33,13 +33,25 @@ export function getDoseUnit(unit?: string | null): string {
   return slash > 0 ? unit.slice(0, slash) : unit
 }
 
-export function formatOralInventory(totalTablets: number, tabsPerBox: number | null): string {
+export function formatOralInventory(
+  totalTablets: number,
+  tabsPerBox: number | null,
+  unit: string = '盒'
+): string {
   if (!tabsPerBox || tabsPerBox <= 0) return `${totalTablets} 顆`
   const boxes = Math.floor(totalTablets / tabsPerBox)
   const remaining = totalTablets % tabsPerBox
   if (boxes === 0) return `${remaining} 顆`
-  if (remaining === 0) return `${boxes} 盒`
-  return `${boxes} 盒 ${remaining} 顆`
+  if (remaining === 0) return `${boxes} ${unit}`
+  return `${boxes} ${unit} ${remaining} 顆`
+}
+
+/**
+ * Whole packages needed to cover an oral shortage, rounded up.
+ * deficitTablets is the signed/raw tablet deficit; sign is ignored.
+ */
+export function oralDeficitPackages(deficitTablets: number, tabsPerBox: number | null): number {
+  return Math.ceil(Math.abs(deficitTablets) / (tabsPerBox || 100))
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {

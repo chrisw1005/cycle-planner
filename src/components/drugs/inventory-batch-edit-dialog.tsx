@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useBatchUpdateDrugInventory } from '@/hooks/use-drugs'
 import { parseDeficitXLSX } from '@/lib/import/deficit-import'
+import { oralDeficitPackages } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -129,13 +130,16 @@ export function InventoryBatchEditDialog({
                 const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
                 const unit = isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'
                 const needed = isOral ? Math.round(d.needed_ml) : d.needed_vials
+                const shortage = isOral
+                  ? `缺 ${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${d.package_unit ?? '盒'}`
+                  : `缺 ${Math.abs(d.deficit)} ${unit}`
                 return (
                   <TableRow key={d.drug_id}>
                     <TableCell className="font-medium">{d.drug_name}</TableCell>
                     <TableCell className="text-right">{d.current_inventory} {unit}</TableCell>
                     <TableCell className="text-right">{needed} {unit}</TableCell>
                     <TableCell className="text-right text-red-500">
-                      缺 {Math.abs(d.deficit)} {unit}
+                      {shortage}
                     </TableCell>
                     <TableCell>
                       <Input

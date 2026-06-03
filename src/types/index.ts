@@ -104,6 +104,7 @@ export interface Drug {
   image_url: string | null
   inventory_count: number
   tabs_per_box: number | null
+  package_unit: string // oral/PCT package unit (盒/排/瓶/條); injectables ignore
   created_at: string
   updated_at: string
   // Joined
@@ -227,6 +228,7 @@ export interface DrugInventoryDelta {
   needed_vials: number      // Injectable: vials; Oral/PCT: boxes
   current_inventory: number // Injectable: vials; Oral/PCT: total tablets
   tabs_per_box: number | null
+  package_unit: string | null // oral/PCT package unit label (盒/排/瓶/條)
   deficit: number // negative = shortage
 }
 
