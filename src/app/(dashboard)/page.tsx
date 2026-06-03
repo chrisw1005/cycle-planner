@@ -8,6 +8,7 @@ import { useGlobalInventoryDeficits } from '@/hooks/use-inventory-deficits'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { statusLabels } from '@/lib/constants/cycle-status'
+import { oralDeficitPackages } from '@/lib/utils'
 import { Users, Pill, Calendar, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { DeficitActions } from '@/components/drugs/deficit-export-menu'
@@ -191,9 +192,12 @@ export default function DashboardPage() {
                     {deficitDrugs.map((d) => {
                       const isE3D = d.ester_type === 'E3D'
                       const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                      const shortage = isOral
+                        ? `${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${d.package_unit ?? '盒'}`
+                        : `${Math.abs(d.deficit)} ${isE3D ? '瓶/劑' : '瓶'}`
                       return (
                         <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
-                          {d.drug_name}: 缺 {Math.abs(d.deficit)} {isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'}
+                          {d.drug_name}: 缺 {shortage}
                         </Badge>
                       )
                     })}

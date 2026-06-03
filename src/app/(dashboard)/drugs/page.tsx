@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, LayoutGrid, List, Search, Pencil, Trash2, Pill } from 'lucide-react'
 import Link from 'next/link'
+import { oralDeficitPackages } from '@/lib/utils'
 import type { Drug } from '@/types'
 
 export default function DrugsPage() {
@@ -193,9 +194,12 @@ export default function DrugsPage() {
               {globalDeficits?.filter(d => d.deficit < 0).map((d) => {
                 const isE3D = d.ester_type === 'E3D'
                 const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                const shortage = isOral
+                  ? `缺 ${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${d.package_unit ?? '盒'}`
+                  : isE3D ? `缺 ${Math.abs(d.deficit)} 瓶/劑` : `缺 ${Math.abs(d.deficit)} 瓶`
                 return (
                   <Badge key={d.drug_id} variant="outline" className="border-red-500 text-red-500">
-                    {d.drug_name}: {isOral ? `缺 ${Math.abs(d.deficit)} 顆` : isE3D ? `缺 ${Math.abs(d.deficit)} 瓶/劑` : `缺 ${Math.abs(d.deficit)} 瓶`}
+                    {d.drug_name}: {shortage}
                   </Badge>
                 )
               })}
@@ -250,7 +254,7 @@ export default function DrugsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Input type="number" min="0" value={editBoxes} onChange={(e) => setEditBoxes(e.target.value)} />
-                  <p className="text-xs text-muted-foreground mt-1">盒</p>
+                  <p className="text-xs text-muted-foreground mt-1">{inventoryTarget?.package_unit ?? '盒'}</p>
                 </div>
                 <div>
                   <Input type="number" min="0" value={editLoose} onChange={(e) => setEditLoose(e.target.value)} />

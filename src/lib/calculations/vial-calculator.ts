@@ -11,6 +11,7 @@ interface DrugWithInventory {
   template_id?: string | null
   inventory_count: number
   tabs_per_box?: number | null
+  package_unit?: string | null
 }
 
 interface CycleDrugWithDrug extends Omit<CycleDrug, 'drug'> {
@@ -189,6 +190,7 @@ export function calculateInventoryDeltas(
       needed_vials: neededUnits,
       current_inventory: inventory,
       tabs_per_box: drug.tabs_per_box ?? null,
+      package_unit: drug.package_unit ?? '盒',
       deficit: isOral
         ? inventory - Math.round(totalAmount)  // oral: total tablets vs total tablets
         : inventory - neededUnits,              // injectable: vials vs vials

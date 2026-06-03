@@ -282,7 +282,7 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                               <TableCell className="font-medium">{d.drug_name}</TableCell>
                               <TableCell className="text-right">
                                 {isOral
-                                  ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+                                  ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box, d.package_unit ?? '盒')})`
                                   : isE3D
                                     ? `${d.needed_vials} 瓶/劑`
                                     : `${d.needed_ml} ml (${d.needed_vials} 瓶)`}

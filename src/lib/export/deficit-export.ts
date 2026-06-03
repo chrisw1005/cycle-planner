@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { toast } from 'sonner'
-import { formatOralInventory, groupDeltasByCategory } from '@/lib/utils'
+import { formatOralInventory, groupDeltasByCategory, oralDeficitPackages } from '@/lib/utils'
 import type { DrugInventoryDelta } from '@/types'
 import { loadCJKFont } from './pdf-fonts'
 
@@ -24,13 +24,14 @@ function filterShortage(deltas: DrugInventoryDelta[]): DrugInventoryDelta[] {
   return deltas.filter((d) => d.deficit < 0)
 }
 
-export async function exportDeficitsToXLSX(deltas: DrugInventoryDelta[]) {
+export async function exportDeficitsToXLSX(deltas: DrugInventoryDelta[], includeRemainder = false) {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('藥物缺口')
   const rows = filterShortage(deltas)
 
   ws.columns = [
-    { key: 'drug_id', width: 38 },
+    // hidden: kept for re-import matching, but not shown so 藥物名稱 is the first visible column
+    { key: 'drug_id', width: 38, hidden: true },
     { key: 'drug_name', width: 24 },
     { key: 'category', width: 12 },
     { key: 'ester_type', width: 10 },
@@ -62,8 +63,9 @@ export async function exportDeficitsToXLSX(deltas: DrugInventoryDelta[]) {
     for (const d of group.items) {
       const isE3D = d.ester_type === 'E3D'
       const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+      const unit = d.package_unit ?? '盒'
       const currentDisplay = isOral
-        ? `${d.current_inventory} 顆 (${formatOralInventory(d.current_inventory, d.tabs_per_box)})`
+        ? `${d.current_inventory} 顆 (${formatOralInventory(d.current_inventory, d.tabs_per_box, unit)})`
         : isE3D
           ? `${d.current_inventory} 瓶/劑`
           : `${d.current_inventory} 瓶`
@@ -73,7 +75,7 @@ export async function exportDeficitsToXLSX(deltas: DrugInventoryDelta[]) {
           ? `${d.needed_vials} 瓶/劑`
           : `${d.needed_ml} ml (${d.needed_vials} 瓶)`
       const deficitDisplay = isOral
-        ? `缺 ${Math.abs(d.deficit)} 顆`
+        ? `缺 ${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${unit}${includeRemainder ? `（${Math.abs(d.deficit)} 顆）` : ''}`
         : isE3D
           ? `缺 ${Math.abs(d.deficit)} 瓶/劑`
           : `缺 ${Math.abs(d.deficit)} 瓶`
@@ -125,7 +127,7 @@ type AutoTableCell =
       styles?: Record<string, unknown>
     }
 
-export async function exportDeficitsToPDF(deltas: DrugInventoryDelta[]) {
+export async function exportDeficitsToPDF(deltas: DrugInventoryDelta[], includeRemainder = false) {
   const rows = filterShortage(deltas)
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
@@ -151,13 +153,17 @@ export async function exportDeficitsToPDF(deltas: DrugInventoryDelta[]) {
       const isE3D = d.ester_type === 'E3D'
       const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
       const unit = isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'
+      const pkgUnit = d.package_unit ?? '盒'
       const needed = isOral ? Math.round(d.needed_ml) : d.needed_vials
+      const deficitText = isOral
+        ? `缺 ${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${pkgUnit}${includeRemainder ? `（${Math.abs(d.deficit)} 顆）` : ''}`
+        : `缺 ${Math.abs(d.deficit)} ${unit}`
       body.push([
         d.drug_name,
         d.ester_type ?? '—',
         `${d.current_inventory} ${unit}`,
         `${needed} ${unit}`,
-        `缺 ${Math.abs(d.deficit)} ${unit}`,
+        deficitText,
       ])
     }
   }

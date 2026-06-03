@@ -47,14 +47,14 @@ export function CalculationSummary({ deltas }: CalculationSummaryProps) {
                         <TableCell className="font-medium">{d.drug_name}</TableCell>
                         <TableCell className="text-right">
                           {isOral
-                            ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box)})`
+                            ? `${Math.round(d.needed_ml)} 顆 (${formatOralInventory(Math.round(d.needed_ml), d.tabs_per_box, d.package_unit ?? '盒')})`
                             : isE3D
                               ? `${d.needed_vials} 瓶/劑`
                               : `${d.needed_ml} ml (${d.needed_vials} 瓶)`}
                         </TableCell>
                         <TableCell className="text-right">
                           {isOral
-                            ? `${formatOralInventory(d.current_inventory, d.tabs_per_box)}（${d.current_inventory}顆）`
+                            ? `${formatOralInventory(d.current_inventory, d.tabs_per_box, d.package_unit ?? '盒')}（${d.current_inventory}顆）`
                             : `${d.current_inventory} ${unitLabel}`}
                         </TableCell>
                         <TableCell className="text-right">

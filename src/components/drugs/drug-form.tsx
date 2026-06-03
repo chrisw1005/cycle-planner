@@ -24,6 +24,7 @@ interface DrugFormProps {
     brand: string | null
     inventory_count: number
     tabs_per_box: number | null
+    package_unit: string
     image_url: string | null
   }) => void
   loading?: boolean
@@ -47,6 +48,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(initialData?.image_url || null)
   const [inventoryCount, setInventoryCount] = useState(initialData?.inventory_count?.toString() || '0')
   const [tabsPerBox, setTabsPerBox] = useState(initialData?.tabs_per_box?.toString() || '100')
+  const [packageUnit, setPackageUnit] = useState(initialData?.package_unit || '盒')
   const [inventoryBoxes, setInventoryBoxes] = useState(() => {
     if (initialData && (initialData.primary_category === 'Oral' || initialData.primary_category === 'PCT') && initialData.tabs_per_box) {
       return Math.floor(initialData.inventory_count / initialData.tabs_per_box).toString()
@@ -100,6 +102,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
         ? (parseInt(inventoryBoxes) || 0) * (parseInt(tabsPerBox) || 100) + (parseInt(inventoryLoose) || 0)
         : parseInt(inventoryCount) || 0,
       tabs_per_box: (primaryCategory === 'Oral' || primaryCategory === 'PCT') ? (parseInt(tabsPerBox) || null) : null,
+      package_unit: packageUnit,
       image_url: imageUrl,
     })
   }
@@ -286,17 +289,33 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                 <DrugImageUpload currentUrl={imageUrl} onUrlChange={setImageUrl} onPendingDelete={handlePendingDelete} />
               </div>
 
-              {/* Tabs per box (oral only) */}
+              {/* Package unit + tabs per package (oral only) */}
               {(primaryCategory === 'Oral' || primaryCategory === 'PCT') && (
-                <div className="space-y-2">
-                  <Label htmlFor="tabsPerBox">每盒顆數</Label>
-                  <Input
-                    id="tabsPerBox"
-                    type="number"
-                    min="1"
-                    value={tabsPerBox}
-                    onChange={(e) => setTabsPerBox(e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>包裝單位</Label>
+                    <Select value={packageUnit} onValueChange={(v: string | null) => v && setPackageUnit(v)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="盒">盒</SelectItem>
+                        <SelectItem value="排">排</SelectItem>
+                        <SelectItem value="瓶">瓶</SelectItem>
+                        <SelectItem value="條">條</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tabsPerBox">每{packageUnit}顆數</Label>
+                    <Input
+                      id="tabsPerBox"
+                      type="number"
+                      min="1"
+                      value={tabsPerBox}
+                      onChange={(e) => setTabsPerBox(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -312,7 +331,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                         value={inventoryBoxes}
                         onChange={(e) => setInventoryBoxes(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground mt-1">盒</p>
+                      <p className="text-xs text-muted-foreground mt-1">{packageUnit}</p>
                     </div>
                     <div>
                       <Input
