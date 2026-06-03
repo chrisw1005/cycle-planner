@@ -58,6 +58,8 @@ export function SaveTemplateDialog({
           injection_ml: cd.injection_ml,
           total_injections: cd.total_injections,
           schedule_mode: cd.schedule_mode,
+          custom_days: cd.custom_days,
+          interval_days: cd.interval_days,
           start_week: cd.start_week,
           end_week: cd.end_week,
         })),

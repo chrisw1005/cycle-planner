@@ -148,7 +148,7 @@ export function useAddCycleDrug() {
   const queryClient = useQueryClient()
   const { tenantId } = useTenant()
   return useMutation({
-    mutationFn: async (cycleDrug: { cycle_id: string; drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; vial_count?: number; schedule_mode?: string; start_week: number; end_week: number }) => {
+    mutationFn: async (cycleDrug: { cycle_id: string; drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; vial_count?: number; schedule_mode?: string; custom_days?: number[]; interval_days?: number; start_week: number; end_week: number }) => {
       if (!tenantId) throw new Error('Tenant not resolved')
       const { data, error } = await supabase.from('cycle_drugs').insert({ ...cycleDrug, tenant_id: tenantId }).select('*, drug:drugs(*)').single()
       if (error) throw error

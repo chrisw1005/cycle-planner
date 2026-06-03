@@ -51,6 +51,8 @@ export function useSaveAsTemplate() {
         injection_ml?: number | null
         total_injections?: number | null
         schedule_mode?: string | null
+        custom_days?: number[] | null
+        interval_days?: number | null
         start_week: number
         end_week: number
       }[]
@@ -73,6 +75,8 @@ export function useSaveAsTemplate() {
           injection_ml: d.injection_ml ?? null,
           total_injections: d.total_injections ?? null,
           schedule_mode: d.schedule_mode ?? null,
+          custom_days: d.custom_days ?? null,
+          interval_days: d.interval_days ?? null,
           start_week: d.start_week,
           end_week: d.end_week,
         }))
@@ -118,6 +122,8 @@ export function useAddTemplateDrug() {
       injection_ml?: number | null
       total_injections?: number | null
       schedule_mode?: string | null
+      custom_days?: number[] | null
+      interval_days?: number | null
       start_week: number
       end_week: number
     }) => {
