@@ -131,7 +131,7 @@ export function InventoryBatchEditDialog({
             <TableBody>
               {shortage.map((d) => {
                 const isE3D = d.ester_type === 'E3D'
-                const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
                 const unit = isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'
                 const needed = isOral ? Math.round(d.needed_ml) : d.needed_vials
                 const shortage = isOral

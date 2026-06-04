@@ -40,7 +40,7 @@ export function CalculationSummary({ deltas }: CalculationSummaryProps) {
                   </TableRow>
                   {group.items.map((d) => {
                     const isE3D = d.ester_type === 'E3D'
-                    const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                    const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
                     const unitLabel = isOral ? '盒' : isE3D ? '瓶/劑' : '瓶'
                     return (
                       <TableRow key={d.drug_id}>

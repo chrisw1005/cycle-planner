@@ -80,7 +80,7 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
   const selectedDrug = drugs?.find((d) => d.id === selectedDrugId)
   const isE3D = selectedDrug?.ester_type === 'E3D'
   const isInjectable = selectedDrug?.primary_category === 'Injectable' && !isE3D
-  const isOral = !isE3D && (selectedDrug?.primary_category === 'Oral' || selectedDrug?.primary_category === 'PCT')
+  const isOral = !isE3D && (selectedDrug?.primary_category === 'Oral' || selectedDrug?.primary_category === 'PCT' || selectedDrug?.primary_category === 'Other')
   const doseUnit = getDoseUnit(selectedDrug?.unit)
 
   // E3D: auto-calculate ml per injection and end_week

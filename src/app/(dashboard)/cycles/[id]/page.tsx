@@ -11,9 +11,8 @@ import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
 import { SaveTemplateDialog } from '@/components/cycles/save-template-dialog'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
-import { getDoseUnit } from '@/lib/utils'
+import { getDoseUnit, cn, formatThousands } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -55,6 +54,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const [localSkips, setLocalSkips] = useState<Set<string> | null>(null)
   const [localNotes, setLocalNotes] = useState<string | null>(null)
   const [localName, setLocalName] = useState<string | null>(null)
+  const [localSalePrice, setLocalSalePrice] = useState<string | null>(null)
   const [localMoves, setLocalMoves] = useState<CellMoveData[]>([])
 
   // Initialize skip state from saved cells (once on load)
@@ -387,8 +387,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       const items = inventoryDeltas
         .map((d) => {
           const isE3D = d.ester_type === 'E3D'
-          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
-          // inventory_count units: tablets for oral/PCT, vials for injectable/E3D
+          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
+          // inventory_count units: tablets for oral/PCT/Other, vials for injectable/E3D
           const units = isOral ? Math.round(d.needed_ml) : d.needed_vials
           return { drug_id: d.drug_id, units }
         })
@@ -446,9 +446,6 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                   {cycle.name || `${(cycle as any).person?.nickname} 的課表`}
                 </h1>
               )}
-              <Badge variant="outline" className={statusColors[cycle.status]}>
-                {statusLabels[cycle.status]}
-              </Badge>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>{cycle.total_weeks} 週</span>
@@ -494,7 +491,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                 value={cycle.status}
                 onValueChange={(v: string | null) => v && handleStatusChange(v as CycleStatus)}
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className={cn('w-32', statusColors[cycle.status])}>
                   <SelectValue>
                     {(value: string | null) => value ? statusLabels[value as CycleStatus] ?? value : null}
                   </SelectValue>
@@ -667,6 +664,46 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
 
       {/* Inventory Summary */}
       <CalculationSummary deltas={inventoryDeltas} />
+
+      {/* Sale price (NTD) — bottom-right under the stats table */}
+      <div className="flex justify-end">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-muted-foreground">售價金額 (NTD)</span>
+          {isEditable ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                className="h-9 w-40 text-right"
+                placeholder="—"
+                value={localSalePrice ?? cycle.sale_price?.toString() ?? ''}
+                onChange={(e) => setLocalSalePrice(e.target.value)}
+                onBlur={() => {
+                  if (localSalePrice === null) return
+                  const next = localSalePrice === '' ? null : parseInt(localSalePrice, 10)
+                  if (next !== (cycle.sale_price ?? null) && (next === null || Number.isFinite(next))) {
+                    updateCycle.mutate({ id, sale_price: next })
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
+                }}
+              />
+              <span className="min-w-20 text-right text-sm font-semibold tabular-nums">
+                {(() => {
+                  const raw = localSalePrice ?? cycle.sale_price?.toString() ?? ''
+                  return raw && Number(raw) > 0 ? `NT$ ${formatThousands(Number(raw))}` : ''
+                })()}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm font-semibold tabular-nums">
+              {cycle.sale_price != null ? `NT$ ${formatThousands(cycle.sale_price)}` : '—'}
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Drug Selector Dialog */}
       <DrugSelector

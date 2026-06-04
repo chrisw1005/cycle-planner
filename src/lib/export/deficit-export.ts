@@ -62,7 +62,7 @@ export async function exportDeficitsToXLSX(deltas: DrugInventoryDelta[], include
 
     for (const d of group.items) {
       const isE3D = d.ester_type === 'E3D'
-      const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+      const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
       const unit = d.package_unit ?? '盒'
       const currentDisplay = isOral
         ? `${d.current_inventory} 顆 (${formatOralInventory(d.current_inventory, d.tabs_per_box, unit)})`
@@ -151,7 +151,7 @@ export async function exportDeficitsToPDF(deltas: DrugInventoryDelta[], includeR
     ])
     for (const d of group.items) {
       const isE3D = d.ester_type === 'E3D'
-      const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+      const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
       const unit = isOral ? '顆' : isE3D ? '瓶/劑' : '瓶'
       const pkgUnit = d.package_unit ?? '盒'
       const needed = isOral ? Math.round(d.needed_ml) : d.needed_vials

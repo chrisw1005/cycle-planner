@@ -111,9 +111,12 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
     return adjustDeltasForSkippedCells(base, displayCells, cycle.cycle_drugs as any)
   }, [cycle, allDrugs, displayCells])
 
-  const injectionEventCount = useMemo(() => {
-    if (!cycle?.cycle_drugs) return 0
-    return countInjectionEvents(displayCells, cycle.cycle_drugs as any)
+  const injectionCounts = useMemo(() => {
+    if (!cycle?.cycle_drugs) return { all: 0, steroid: 0 }
+    return {
+      all: countInjectionEvents(displayCells, cycle.cycle_drugs as any),
+      steroid: countInjectionEvents(displayCells, cycle.cycle_drugs as any, { excludeE3D: true }),
+    }
   }, [displayCells, cycle])
 
   const supplySummaries = useMemo(() => {
@@ -123,9 +126,10 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
       overridesNumeric,
       allSupplies,
       cycle.total_weeks,
-      injectionEventCount
+      injectionCounts.all,
+      injectionCounts.steroid
     )
-  }, [includeSupplies, allSupplies, cycleSupplies, overridesNumeric, cycle, injectionEventCount])
+  }, [includeSupplies, allSupplies, cycleSupplies, overridesNumeric, cycle, injectionCounts])
 
   const buildPdfTitle = () => {
     if (!cycle) return 'Cycle'
@@ -250,7 +254,8 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
             <ExportSuppliesSection
               cycleId={id}
               totalWeeks={cycle.total_weeks}
-              injectionEventCount={injectionEventCount}
+              allInjectionCount={injectionCounts.all}
+              steroidInjectionCount={injectionCounts.steroid}
               enabled={includeSupplies}
               onEnabledChange={handleIncludeSuppliesChange}
               overrides={supplyOverrides}
@@ -276,7 +281,7 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                         </TableRow>
                         {group.items.map((d) => {
                           const isE3D = d.ester_type === 'E3D'
-                          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
                           return (
                             <TableRow key={d.drug_id}>
                               <TableCell className="font-medium">{d.drug_name}</TableCell>

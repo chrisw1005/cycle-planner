@@ -2,7 +2,9 @@
 
 import { use, useState } from 'react'
 import { usePerson, useUpdatePerson } from '@/hooks/use-people'
+import { useDrugs } from '@/hooks/use-drugs'
 import { useAuth } from '@/hooks/use-auth'
+import { CycleStatusSelect } from '@/components/cycles/cycle-status-select'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +19,7 @@ import type { CycleStatus } from '@/types'
 export default function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: person, isLoading } = usePerson(id)
+  const { data: allDrugs } = useDrugs()
   const updatePerson = useUpdatePerson()
   const { isAdmin } = useAuth()
   const [editOpen, setEditOpen] = useState(false)
@@ -138,9 +141,13 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusColors[cycle.status as CycleStatus]}>
-                          {statusLabels[cycle.status as CycleStatus]}
-                        </Badge>
+                        {isAdmin ? (
+                          <CycleStatusSelect cycle={cycle as { id: string; status: CycleStatus }} allDrugs={allDrugs ?? []} />
+                        ) : (
+                          <Badge variant="outline" className={statusColors[cycle.status as CycleStatus]}>
+                            {statusLabels[cycle.status as CycleStatus]}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" render={<Link href={`/cycles/${cycle.id}`} />}>

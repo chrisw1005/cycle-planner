@@ -9,6 +9,7 @@ interface DrugWithInventory {
   sub_category?: string | null
   ester_type: string | null
   template_id?: string | null
+  template?: { display_order?: number | null } | null
   inventory_count: number
   tabs_per_box?: number | null
   package_unit?: string | null
@@ -68,7 +69,7 @@ export function calculateTotalMl(cycleDrug: CycleDrugWithDrug): number {
  */
 export function calculateTotalTablets(cycleDrug: CycleDrugWithDrug): number {
   const { drug } = cycleDrug
-  if (drug.primary_category !== 'Oral' && drug.primary_category !== 'PCT') return 0
+  if (drug.primary_category !== 'Oral' && drug.primary_category !== 'PCT' && drug.primary_category !== 'Other') return 0
   const weeks = cycleDrug.end_week - cycleDrug.start_week + 1
   const mode = cycleDrug.schedule_mode || 'daily'
 
@@ -135,7 +136,7 @@ export function calculateInventoryDeltas(
       existing.totalAmount += calculateTotalMl(cd)
       if (isE3D && cd.vial_count) existing.vialCount = (existing.vialCount || 0) + cd.vial_count
       drugMap.set(cd.drug_id, existing)
-    } else if (cd.drug.primary_category === 'Oral' || cd.drug.primary_category === 'PCT') {
+    } else if (cd.drug.primary_category === 'Oral' || cd.drug.primary_category === 'PCT' || cd.drug.primary_category === 'Other') {
       const existing = drugMap.get(cd.drug_id) || { totalAmount: 0, drug: cd.drug }
       existing.totalAmount += calculateTotalTablets(cd)
       drugMap.set(cd.drug_id, existing)
@@ -159,14 +160,14 @@ export function calculateInventoryDeltas(
   const sortedEntries = Array.from(drugMap.entries()).sort(
     ([, a], [, b]) =>
       compareDrugForDisplay(
-        { primary_category: resolveCategory(a.drug), sub_category: a.drug.sub_category, name: a.drug.name },
-        { primary_category: resolveCategory(b.drug), sub_category: b.drug.sub_category, name: b.drug.name }
+        { primary_category: resolveCategory(a.drug), sub_category: a.drug.sub_category, name: a.drug.name, display_order: a.drug.template?.display_order ?? null },
+        { primary_category: resolveCategory(b.drug), sub_category: b.drug.sub_category, name: b.drug.name, display_order: b.drug.template?.display_order ?? null }
       )
   )
 
   return sortedEntries.map(([drugId, { totalAmount, drug, vialCount }]) => {
     const isE3D = drug.ester_type === 'E3D'
-    const isOral = !isE3D && (drug.primary_category === 'Oral' || drug.primary_category === 'PCT')
+    const isOral = !isE3D && (drug.primary_category === 'Oral' || drug.primary_category === 'PCT' || drug.primary_category === 'Other')
 
     // E3D: use user-specified vial_count directly; fallback to ceil(totalMl / 10)
     const neededUnits = isOral
@@ -184,7 +185,7 @@ export function calculateInventoryDeltas(
     return {
       drug_id: drugId,
       drug_name: drug.name,
-      category: resolveCategory(drug) as 'Injectable' | 'Oral' | 'PCT',
+      category: resolveCategory(drug) as 'Injectable' | 'Oral' | 'PCT' | 'Other',
       ester_type: (drug.ester_type as any) || null,
       needed_ml: Math.round(totalAmount * 100) / 100,
       needed_vials: neededUnits,
@@ -316,7 +317,7 @@ export function adjustDeltasForSkippedCells(
 
     const adjustedNeededMl = Math.round((d.needed_ml - skippedAmount) * 100) / 100
     const isE3D = d.ester_type === 'E3D'
-    const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+    const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
     const adjustedUnits = isOral
       ? calculateBoxesNeeded(adjustedNeededMl, d.tabs_per_box)
       : calculateVialsNeeded(adjustedNeededMl)
