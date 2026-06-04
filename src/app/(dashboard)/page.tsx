@@ -12,6 +12,7 @@ import { oralDeficitPackages } from '@/lib/utils'
 import { Users, Pill, Calendar, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { DeficitActions } from '@/components/drugs/deficit-export-menu'
+import { InventoryCalendar } from '@/components/dashboard/inventory-calendar'
 import { InventoryLedger } from '@/components/dashboard/inventory-ledger'
 import type { CycleStatus } from '@/types'
 
@@ -208,6 +209,7 @@ export default function DashboardPage() {
               </Card>
             )}
 
+            <InventoryCalendar />
             <InventoryLedger />
           </>
         )
