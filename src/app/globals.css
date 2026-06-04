@@ -128,9 +128,10 @@
   html {
     @apply font-sans;
   }
-  /* Number input spinner arrows — use foreground color for dark mode readability */
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    filter: invert(1);
-  }
+  /*
+   * Native number-input spinner arrows are themed via `color-scheme`
+   * (light arrows in dark mode, dark arrows in light mode — see `.dark`).
+   * Do NOT add `filter: invert()` here: combined with `color-scheme: dark`
+   * it double-inverts the arrows back to black.
+   */
 }
