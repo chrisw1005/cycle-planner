@@ -1,118 +1,120 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useInventoryTransactions } from '@/hooks/use-inventory-transactions'
+import { useDrugs } from '@/hooks/use-drugs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
-import { aggregateTransactionsByDay, localDayKey, type DayInventoryAgg } from '@/lib/utils'
-import type { InventoryTxKind } from '@/types'
+import { cn, aggregateTransactionsByDay, buildDrugLevelSeries, localDayKey, type DayInventoryAgg } from '@/lib/utils'
+
+// recharts lives in the day-detail dialog; lazy-load it so it stays out of SSR and
+// the initial dashboard bundle (only fetched when a user opens a day).
+const InventoryDayDetail = dynamic(
+  () => import('./inventory-day-detail').then((m) => m.InventoryDayDetail),
+  { ssr: false }
+)
 
 type View = 'calendar' | 'heatmap' | 'strip'
+type RangeUnit = 'month' | 'quarter' | 'half' | 'year'
 
-// Mon-first weekday labels (the schedule grid is Mon..Sun too).
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
+const RANGE_LABELS: Record<RangeUnit, string> = { month: '月', quarter: '季', half: '半年', year: '年' }
 
-const KIND_META: Record<InventoryTxKind, { label: string; dot: string }> = {
-  restock: { label: '進貨', dot: 'bg-green-500' },
-  shipment: { label: '出貨', dot: 'bg-red-500' },
-  adjustment: { label: '調整', dot: 'bg-amber-500' },
+// Heatmap intensity shades (literal classes so Tailwind keeps them), by activity bucket.
+const GREEN_SCALE = ['bg-green-500/30', 'bg-green-500/55', 'bg-green-500/75', 'bg-green-500']
+const RED_SCALE = ['bg-red-500/30', 'bg-red-500/55', 'bg-red-500/75', 'bg-red-500']
+
+function bucketOf(total: number): number {
+  return total >= 10 ? 3 : total >= 5 ? 2 : total >= 3 ? 1 : 0 // 1-2, 3-4, 5-9, 10+
 }
 
-// Literal class strings (Tailwind can't see interpolated names) for heatmap shades,
-// indexed by activity count bucket (1, 2, 3, 4+).
-const HEAT: Record<InventoryTxKind, string[]> = {
-  restock: ['bg-green-500/30', 'bg-green-500/50', 'bg-green-500/70', 'bg-green-500'],
-  shipment: ['bg-red-500/30', 'bg-red-500/50', 'bg-red-500/70', 'bg-red-500'],
-  adjustment: ['bg-amber-500/30', 'bg-amber-500/50', 'bg-amber-500/70', 'bg-amber-500'],
+interface HeatRange {
+  start: Date
+  end: Date
+  label: string
+  prevAnchor: Date
+  nextAnchor: Date
 }
 
-function dominantKind(agg: DayInventoryAgg): InventoryTxKind {
-  const ranked: [InventoryTxKind, number][] = [
-    ['restock', agg.restock.count],
-    ['shipment', agg.shipment.count],
-    ['adjustment', agg.adjustment.count],
-  ]
-  ranked.sort((a, b) => b[1] - a[1])
-  return ranked[0][0]
+function heatmapRange(anchor: Date, unit: RangeUnit): HeatRange {
+  const y = anchor.getFullYear()
+  const m0 = anchor.getMonth()
+  if (unit === 'year') {
+    return { start: new Date(y, 0, 1), end: new Date(y, 11, 31), label: `${y}`, prevAnchor: new Date(y - 1, 0, 1), nextAnchor: new Date(y + 1, 0, 1) }
+  }
+  if (unit === 'half') {
+    const sm = m0 < 6 ? 0 : 6
+    return { start: new Date(y, sm, 1), end: new Date(y, sm + 6, 0), label: `${y} H${sm / 6 + 1}`, prevAnchor: new Date(y, sm - 6, 1), nextAnchor: new Date(y, sm + 6, 1) }
+  }
+  if (unit === 'quarter') {
+    const sm = Math.floor(m0 / 3) * 3
+    return { start: new Date(y, sm, 1), end: new Date(y, sm + 3, 0), label: `${y} Q${sm / 3 + 1}`, prevAnchor: new Date(y, sm - 3, 1), nextAnchor: new Date(y, sm + 3, 1) }
+  }
+  return { start: new Date(y, m0, 1), end: new Date(y, m0 + 1, 0), label: `${y} 年 ${m0 + 1} 月`, prevAnchor: new Date(y, m0 - 1, 1), nextAnchor: new Date(y, m0 + 1, 1) }
 }
 
-function dayTotal(agg: DayInventoryAgg): number {
-  return agg.restock.count + agg.shipment.count + agg.adjustment.count
+// GitHub-style grid: array of week-columns, each 7 entries (Mon..Sun), null = outside range.
+function buildHeatWeeks(start: Date, end: Date): (string | null)[][] {
+  const cursor = new Date(start)
+  cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7)) // back to the Monday on/before start
+  const cols: (string | null)[][] = []
+  while (cursor <= end) {
+    const col: (string | null)[] = []
+    for (let r = 0; r < 7; r++) {
+      col.push(cursor < start || cursor > end ? null : localDayKey(cursor))
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    cols.push(col)
+  }
+  return cols
 }
 
-function summaryParts(agg: DayInventoryAgg): string {
-  const parts: string[] = []
-  if (agg.restock.count) parts.push(`進 ${agg.restock.count}`)
-  if (agg.shipment.count) parts.push(`出 ${agg.shipment.count}`)
-  if (agg.adjustment.count) parts.push(`調 ${agg.adjustment.count}`)
-  return parts.join(' / ')
-}
-
-// Per-day detail shown in a Popover (calendar / strip click).
-function DayDetail({ agg }: { agg: DayInventoryAgg }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium tabular-nums">{agg.date}</p>
-      <ul className="space-y-1">
-        {agg.items.map((it, i) => {
-          const isIn = it.delta > 0
-          return (
-            <li key={i} className="flex items-center justify-between gap-3 text-xs">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${KIND_META[it.kind].dot}`} />
-                <span className="truncate">{it.drug_name}</span>
-                <span className="shrink-0 text-muted-foreground">{KIND_META[it.kind].label}</span>
-              </span>
-              <span className={`shrink-0 tabular-nums ${isIn ? 'text-green-500' : 'text-red-500'}`}>
-                {isIn ? '+' : ''}
-                {it.delta}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
+function colMonth(col: (string | null)[]): number | null {
+  for (const k of col) if (k) return Number(k.slice(5, 7))
+  return null
 }
 
 export function InventoryCalendar() {
   const { data: txs } = useInventoryTransactions(300)
+  const { data: drugs } = useDrugs()
   const [view, setView] = useState<View>('calendar')
-  // Initialised client-side (effect) to the latest transaction's month — avoids any
-  // SSR/CSR `new Date()` mismatch and lands the user on a month that has data.
-  const [viewMonth, setViewMonth] = useState<Date | null>(null)
+  const [rangeUnit, setRangeUnit] = useState<RangeUnit>('year')
+  const [anchor, setAnchor] = useState<Date | null>(null)
+  const [jumpOpen, setJumpOpen] = useState(false)
+  const [jumpYear, setJumpYear] = useState(2026)
+  const [detailDay, setDetailDay] = useState<string | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const initialized = useRef(false)
 
   const byDay = useMemo(() => aggregateTransactionsByDay(txs ?? []), [txs])
+  const series = useMemo(() => buildDrugLevelSeries(txs ?? [], drugs ?? []), [txs, drugs])
 
   useEffect(() => {
     if (initialized.current || txs === undefined) return
     initialized.current = true
-    const latest = txs[0]?.created_at // hook returns newest first
+    const latest = txs[0]?.created_at
     const base = latest ? new Date(latest) : new Date()
-    setViewMonth(new Date(base.getFullYear(), base.getMonth(), 1))
+    setAnchor(new Date(base.getFullYear(), base.getMonth(), 1))
   }, [txs])
 
-  if (!txs || txs.length === 0 || !viewMonth) return null
+  if (!txs || txs.length === 0 || !anchor) return null
 
-  const year = viewMonth.getFullYear()
-  const month0 = viewMonth.getMonth()
-  const dim = new Date(year, month0 + 1, 0).getDate()
-  const offset = (new Date(year, month0, 1).getDay() + 6) % 7 // Mon=0 leading blanks
-  const keyOf = (day: number) => localDayKey(new Date(year, month0, day))
+  const year = anchor.getFullYear()
+  const month0 = anchor.getMonth()
+  const hr = heatmapRange(anchor, rangeUnit)
 
-  const days = Array.from({ length: dim }, (_, i) => {
-    const day = i + 1
-    return { day, key: keyOf(day), agg: byDay.get(keyOf(day)) }
-  })
-  const hasActivity = days.some((d) => d.agg)
-  const hasAdjustment = days.some((d) => d.agg && d.agg.adjustment.count > 0)
-
-  const shiftMonth = (delta: number) => setViewMonth(new Date(year, month0 + delta, 1))
+  const openDetail = (key: string) => {
+    setDetailDay(key)
+    setDetailOpen(true)
+  }
+  const goPrev = () => setAnchor(view === 'heatmap' ? hr.prevAnchor : new Date(year, month0 - 1, 1))
+  const goNext = () => setAnchor(view === 'heatmap' ? hr.nextAnchor : new Date(year, month0 + 1, 1))
+  const periodLabel = view === 'heatmap' ? hr.label : `${year} 年 ${month0 + 1} 月`
 
   return (
     <Card>
@@ -130,62 +132,174 @@ export function InventoryCalendar() {
             </TabsList>
           </Tabs>
         </div>
+
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => shiftMonth(-1)} aria-label="上個月">
-              <ChevronLeft />
-            </Button>
-            <span className="min-w-[104px] text-center text-sm font-medium tabular-nums">
-              {year} 年 {month0 + 1} 月
-            </span>
-            <Button variant="ghost" size="icon" onClick={() => shiftMonth(1)} aria-label="下個月">
-              <ChevronRight />
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {view === 'heatmap' && (
+              <div className="flex items-center rounded-lg bg-muted p-0.5 text-xs">
+                {(['month', 'quarter', 'half', 'year'] as RangeUnit[]).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setRangeUnit(u)}
+                    className={cn(
+                      'rounded-md px-2 py-1 transition-colors',
+                      rangeUnit === u ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {RANGE_LABELS[u]}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={goPrev} aria-label="上一個期間">
+                <ChevronLeft />
+              </Button>
+              <Popover
+                open={jumpOpen}
+                onOpenChange={(o) => {
+                  setJumpOpen(o)
+                  if (o) setJumpYear(year)
+                }}
+              >
+                <PopoverTrigger
+                  render={<button className="rounded-md px-2 py-1 text-sm font-medium tabular-nums hover:bg-muted" />}
+                >
+                  {periodLabel}
+                </PopoverTrigger>
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Button variant="ghost" size="icon-sm" onClick={() => setJumpYear((y) => y - 1)} aria-label="前一年">
+                        <ChevronLeft />
+                      </Button>
+                      <span className="text-sm font-medium tabular-nums">{jumpYear}</span>
+                      <Button variant="ghost" size="icon-sm" onClick={() => setJumpYear((y) => y + 1)} aria-label="後一年">
+                        <ChevronRight />
+                      </Button>
+                    </div>
+                    {view === 'heatmap' ? (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setAnchor(new Date(jumpYear, month0, 1))
+                          setJumpOpen(false)
+                        }}
+                      >
+                        跳到 {jumpYear} 年
+                      </Button>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1">
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
+                          <Button
+                            key={mm}
+                            variant={jumpYear === year && mm - 1 === month0 ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => {
+                              setAnchor(new Date(jumpYear, mm - 1, 1))
+                              setJumpOpen(false)
+                            }}
+                          >
+                            {mm} 月
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button variant="ghost" size="icon" onClick={goNext} aria-label="下一個期間">
+                <ChevronRight />
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-green-500" />進貨
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-red-500" />出貨
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />調整
-            </span>
-          </div>
+
+          {view === 'heatmap' ? (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span>少</span>
+              {[
+                ['bg-muted', '0'],
+                ['bg-green-500/30', '1-2'],
+                ['bg-green-500/55', '3-4'],
+                ['bg-green-500/75', '5-9'],
+                ['bg-green-500', '10+'],
+              ].map(([c, l]) => (
+                <span key={l} className="flex flex-col items-center gap-0.5">
+                  <span className={`h-3 w-3 rounded-sm ${c}`} />
+                  <span className="tabular-nums">{l}</span>
+                </span>
+              ))}
+              <span>多</span>
+              <span className="ml-1">（紅＝淨流出）</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-green-500" />流入
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-500" />流出
+              </span>
+              <span className="text-[11px]">橘＝庫存水位（點日看圖表）</span>
+            </div>
+          )}
         </div>
       </CardHeader>
+
       <CardContent>
-        {!hasActivity ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">本月無異動</p>
-        ) : view === 'calendar' ? (
-          <CalendarView days={days} offset={offset} />
+        {view === 'calendar' ? (
+          <CalendarView year={year} month0={month0} byDay={byDay} onPick={openDetail} />
         ) : view === 'heatmap' ? (
-          <HeatmapView year={year} month0={month0} dim={dim} offset={offset} byDay={byDay} />
+          <HeatmapView range={hr} byDay={byDay} onPick={openDetail} />
         ) : (
-          <StripView days={days} hasAdjustment={hasAdjustment} />
+          <StripView year={year} month0={month0} byDay={byDay} onPick={openDetail} />
         )}
       </CardContent>
+
+      {detailOpen && (
+        <InventoryDayDetail
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          dayKey={detailDay}
+          agg={detailDay ? byDay.get(detailDay) ?? null : null}
+          series={series}
+        />
+      )}
     </Card>
   )
 }
 
-function CountDot({ kind, count }: { kind: InventoryTxKind; count: number }) {
+function CountDot({ dir, count }: { dir: 'in' | 'out'; count: number }) {
   return (
     <span className="inline-flex items-center gap-0.5 text-[10px] tabular-nums text-muted-foreground">
-      <span className={`inline-block h-1.5 w-1.5 rounded-full ${KIND_META[kind].dot}`} />
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dir === 'in' ? 'bg-green-500' : 'bg-red-500'}`} />
       {count}
     </span>
   )
 }
 
 function CalendarView({
-  days,
-  offset,
+  year,
+  month0,
+  byDay,
+  onPick,
 }: {
-  days: { day: number; key: string; agg: DayInventoryAgg | undefined }[]
-  offset: number
+  year: number
+  month0: number
+  byDay: Map<string, DayInventoryAgg>
+  onPick: (key: string) => void
 }) {
+  const dim = new Date(year, month0 + 1, 0).getDate()
+  const offset = (new Date(year, month0, 1).getDay() + 6) % 7
+  const days = Array.from({ length: dim }, (_, i) => {
+    const key = localDayKey(new Date(year, month0, i + 1))
+    return { day: i + 1, key, agg: byDay.get(key) }
+  })
+  if (!days.some((d) => d.agg)) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">本期間無異動</p>
+  }
   return (
     <div>
       <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
@@ -203,9 +317,8 @@ function CalendarView({
               <span className="text-xs tabular-nums">{day}</span>
               {agg && (
                 <span className="mt-auto flex flex-wrap items-center gap-1">
-                  {agg.restock.count > 0 && <CountDot kind="restock" count={agg.restock.count} />}
-                  {agg.shipment.count > 0 && <CountDot kind="shipment" count={agg.shipment.count} />}
-                  {agg.adjustment.count > 0 && <CountDot kind="adjustment" count={agg.adjustment.count} />}
+                  {agg.inflow.count > 0 && <CountDot dir="in" count={agg.inflow.count} />}
+                  {agg.outflow.count > 0 && <CountDot dir="out" count={agg.outflow.count} />}
                 </span>
               )}
             </>
@@ -218,18 +331,14 @@ function CalendarView({
             )
           }
           return (
-            <Popover key={key}>
-              <PopoverTrigger
-                render={
-                  <button className="flex min-h-[56px] flex-col rounded-md border border-border p-1 text-left transition-colors hover:bg-accent/50" />
-                }
-              >
-                {inner}
-              </PopoverTrigger>
-              <PopoverContent className="w-60">
-                <DayDetail agg={agg} />
-              </PopoverContent>
-            </Popover>
+            <button
+              key={key}
+              type="button"
+              onClick={() => onPick(key)}
+              className="flex min-h-[56px] flex-col rounded-md border border-border p-1 text-left transition-colors hover:bg-accent/50"
+            >
+              {inner}
+            </button>
           )
         })}
       </div>
@@ -238,120 +347,130 @@ function CalendarView({
 }
 
 function HeatmapView({
-  year,
-  month0,
-  dim,
-  offset,
+  range,
   byDay,
+  onPick,
 }: {
-  year: number
-  month0: number
-  dim: number
-  offset: number
+  range: HeatRange
   byDay: Map<string, DayInventoryAgg>
+  onPick: (key: string) => void
 }) {
-  const weeks = Math.ceil((offset + dim) / 7)
+  const weeks = buildHeatWeeks(range.start, range.end)
+  // Check activity by local day-key (the same basis the grid uses) — parsing the
+  // 'YYYY-MM-DD' key as a Date would be UTC and could drop the range's last day in UTC+ zones.
+  const anyActivity = weeks.some((col) => col.some((k) => k != null && byDay.has(k)))
+  if (!anyActivity) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">本期間無異動</p>
+  }
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-1 overflow-x-auto pb-1">
-        <div className="flex shrink-0 flex-col gap-1 pr-1 text-[10px] leading-4 text-muted-foreground">
-          {WEEKDAYS.map((w) => (
-            <div key={w} className="h-4">{w}</div>
+    <div className="overflow-x-auto">
+      <div className="mx-auto w-fit">
+        {/* month labels */}
+        <div className="flex gap-1">
+          <div className="w-5 shrink-0" />
+          {weeks.map((col, ci) => {
+            const m = colMonth(col)
+            const show = m !== null && m !== (ci > 0 ? colMonth(weeks[ci - 1]) : null)
+            return (
+              <div key={ci} className="w-4 text-center text-[9px] text-muted-foreground tabular-nums">
+                {show ? `${m}月` : ''}
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex gap-1">
+          <div className="flex w-5 shrink-0 flex-col gap-1 text-[9px] leading-4 text-muted-foreground">
+            {WEEKDAYS.map((w) => (
+              <div key={w} className="h-4">{w}</div>
+            ))}
+          </div>
+          {weeks.map((col, ci) => (
+            <div key={ci} className="flex flex-col gap-1">
+              {col.map((key, ri) => {
+                if (!key) return <div key={ri} className="h-4 w-4" />
+                const d = byDay.get(key)
+                const total = d ? d.inflow.count + d.outflow.count : 0
+                if (total === 0) return <div key={ri} className="h-4 w-4 rounded-sm bg-muted" />
+                const net = d!.inflow.delta + d!.outflow.delta
+                const cls = (net >= 0 ? GREEN_SCALE : RED_SCALE)[bucketOf(total)]
+                return (
+                  <Tooltip key={ri}>
+                    <TooltipTrigger
+                      type="button"
+                      onClick={() => onPick(key)}
+                      className={`h-4 w-4 rounded-sm ${cls}`}
+                      aria-label={`${key} 流入${d!.inflow.count} 流出${d!.outflow.count}`}
+                    />
+                    <TooltipContent>
+                      {key} · 流入 {d!.inflow.count} / 流出 {d!.outflow.count}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
           ))}
         </div>
-        {Array.from({ length: weeks }).map((_, c) => (
-          <div key={c} className="flex flex-col gap-1">
-            {Array.from({ length: 7 }).map((_, r) => {
-              const day = c * 7 + r - offset + 1
-              if (day < 1 || day > dim) return <div key={r} className="h-4 w-4" />
-              const agg = byDay.get(localDayKey(new Date(year, month0, day)))
-              if (!agg) return <div key={r} className="h-4 w-4 rounded-sm bg-muted" />
-              const total = dayTotal(agg)
-              const cls = HEAT[dominantKind(agg)][Math.min(total - 1, 3)]
-              return (
-                <Tooltip key={r}>
-                  <TooltipTrigger className={`h-4 w-4 rounded-sm ${cls}`} aria-label={`${agg.date} ${summaryParts(agg)}`} />
-                  <TooltipContent>
-                    {agg.date} · {summaryParts(agg)}
-                  </TooltipContent>
-                </Tooltip>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        少
-        <span className="h-3 w-3 rounded-sm bg-muted" />
-        <span className="h-3 w-3 rounded-sm bg-green-500/30" />
-        <span className="h-3 w-3 rounded-sm bg-green-500/50" />
-        <span className="h-3 w-3 rounded-sm bg-green-500/70" />
-        <span className="h-3 w-3 rounded-sm bg-green-500" />
-        多
       </div>
     </div>
   )
 }
 
 function StripView({
-  days,
-  hasAdjustment,
+  year,
+  month0,
+  byDay,
+  onPick,
 }: {
-  days: { day: number; key: string; agg: DayInventoryAgg | undefined }[]
-  hasAdjustment: boolean
+  year: number
+  month0: number
+  byDay: Map<string, DayInventoryAgg>
+  onPick: (key: string) => void
 }) {
-  const rows: InventoryTxKind[] = hasAdjustment
-    ? ['restock', 'shipment', 'adjustment']
-    : ['restock', 'shipment']
-
+  const dim = new Date(year, month0 + 1, 0).getDate()
+  const days = Array.from({ length: dim }, (_, i) => {
+    const key = localDayKey(new Date(year, month0, i + 1))
+    return { day: i + 1, key, agg: byDay.get(key) }
+  })
+  if (!days.some((d) => d.agg)) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">本期間無異動</p>
+  }
+  const cols = { gridTemplateColumns: `3rem repeat(${dim}, minmax(0, 1fr))` }
   return (
-    <div className="space-y-1 overflow-x-auto pb-1">
-      <div className="flex gap-0.5 pl-14">
-        {days.map(({ day }) => (
-          <div key={day} className="w-5 shrink-0 text-center text-[9px] tabular-nums text-muted-foreground">
-            {day}
+    <div className="overflow-x-auto">
+      <div className="min-w-[640px] space-y-1">
+        <div className="grid items-center gap-0.5" style={cols}>
+          <div />
+          {days.map(({ day }) => (
+            <div key={day} className="text-center text-[9px] tabular-nums text-muted-foreground">
+              {day}
+            </div>
+          ))}
+        </div>
+        {(['inflow', 'outflow'] as const).map((dir) => (
+          <div key={dir} className="grid items-center gap-0.5" style={cols}>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className={`h-2 w-2 rounded-full ${dir === 'inflow' ? 'bg-green-500' : 'bg-red-500'}`} />
+              {dir === 'inflow' ? '流入' : '流出'}
+            </div>
+            {days.map(({ day, key, agg }) => {
+              const count = agg ? agg[dir].count : 0
+              if (count === 0) return <div key={day} className="h-7 rounded-sm bg-muted/40" />
+              const color = dir === 'inflow' ? 'bg-green-500/25 text-green-500' : 'bg-red-500/25 text-red-500'
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => onPick(key)}
+                  className={`flex h-7 items-center justify-center rounded-sm text-[10px] font-medium tabular-nums transition-opacity hover:opacity-80 ${color}`}
+                  aria-label={`${day} 日 ${dir === 'inflow' ? '流入' : '流出'} ${count}`}
+                >
+                  {count}
+                </button>
+              )
+            })}
           </div>
         ))}
       </div>
-      {rows.map((kind) => (
-        <div key={kind} className="flex items-center gap-0.5">
-          <div className="flex w-14 shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <span className={`h-2 w-2 rounded-full ${KIND_META[kind].dot}`} />
-            {KIND_META[kind].label}
-          </div>
-          {days.map(({ day, key, agg }) => {
-            const count = agg ? agg[kind].count : 0
-            if (count === 0) {
-              return <div key={key} className="h-6 w-5 shrink-0 rounded-sm bg-muted/40" />
-            }
-            const color =
-              kind === 'restock'
-                ? 'bg-green-500/20 text-green-500'
-                : kind === 'shipment'
-                  ? 'bg-red-500/20 text-red-500'
-                  : 'bg-amber-500/20 text-amber-500'
-            return (
-              <Popover key={key}>
-                <PopoverTrigger
-                  render={
-                    <button
-                      className={`flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-medium tabular-nums transition-opacity hover:opacity-80 ${color}`}
-                      aria-label={`${day} 日 ${KIND_META[kind].label} ${count}`}
-                    />
-                  }
-                >
-                  {count}
-                </PopoverTrigger>
-                {agg && (
-                  <PopoverContent className="w-60">
-                    <DayDetail agg={agg} />
-                  </PopoverContent>
-                )}
-              </Popover>
-            )
-          })}
-        </div>
-      ))}
     </div>
   )
 }
