@@ -10,8 +10,9 @@ import type { DrugInventoryDelta } from '@/types'
 const supabase = createClient()
 
 /**
- * Aggregate inventory deficits across all active (non-Testing, non-Archived) cycles
- * for the current tenant only.
+ * Aggregate inventory deficits across in-progress (排制中: Scheduled + Planned) cycles
+ * for the current tenant only. Completed cycles are excluded — their stock has already
+ * been shipped out (deducted on completion), so counting them would double-count demand.
  */
 export function useGlobalInventoryDeficits() {
   const { tenantId } = useTenant()
@@ -31,7 +32,7 @@ export function useGlobalInventoryDeficits() {
           )
         `)
         .eq('tenant_id', tenantId!)
-        .not('status', 'in', '("Testing","Archived")')
+        .in('status', ['Scheduled', 'Planned'])
 
       if (error) throw error
       if (!cycles) return []

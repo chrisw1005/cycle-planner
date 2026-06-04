@@ -150,10 +150,12 @@ export function useDeleteDrug() {
 export interface BatchInventoryUpdate {
   id: string
   inventory_count: number
+  previous?: number // old on-hand value, used to log a restock/adjustment ledger row
 }
 
 export function useBatchUpdateDrugInventory() {
   const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
 
   return useMutation({
     mutationFn: async (updates: BatchInventoryUpdate[]) => {
@@ -172,11 +174,32 @@ export function useBatchUpdateDrugInventory() {
       if (failed.length > 0) {
         throw new Error(`${failed.length} 筆更新失敗：${failed[0].error?.message}`)
       }
+
+      // Record each non-zero change in the inventory ledger (manual restock / adjustment)
+      if (tenantId) {
+        const txRows = updates
+          .filter((u) => u.previous != null && u.inventory_count - u.previous !== 0)
+          .map((u) => {
+            const delta = u.inventory_count - (u.previous as number)
+            return {
+              tenant_id: tenantId,
+              drug_id: u.id,
+              cycle_id: null,
+              delta,
+              kind: delta > 0 ? 'restock' : 'adjustment',
+            }
+          })
+        if (txRows.length > 0) {
+          await supabase.from('inventory_transactions').insert(txRows)
+        }
+      }
+
       return results.map((r) => r.data)
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['drugs'] })
       queryClient.invalidateQueries({ queryKey: ['global-inventory-deficits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] })
       toast.success(`已更新 ${data.length} 項庫存`)
     },
     onError: (error) => {

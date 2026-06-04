@@ -232,6 +232,23 @@ export interface DrugInventoryDelta {
   deficit: number // negative = shortage
 }
 
+// ==================== Inventory Ledger ====================
+export type InventoryTxKind = 'shipment' | 'restock' | 'adjustment'
+
+export interface InventoryTransaction {
+  id: string
+  tenant_id: string
+  drug_id: string
+  cycle_id: string | null
+  delta: number // + restock, - shipment
+  kind: InventoryTxKind
+  note: string | null
+  created_at: string
+  // Joined
+  drug?: { name: string } | null
+  cycle?: { name: string | null; person?: { nickname: string } | null } | null
+}
+
 // ==================== Supplies ====================
 export type SupplyRuleType = 'per_injection' | 'per_day' | 'per_week' | 'fixed'
 

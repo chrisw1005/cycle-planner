@@ -66,7 +66,11 @@ export function InventoryBatchEditDialog({
 
   const handleSubmit = () => {
     const updates = Object.entries(values)
-      .map(([id, v]) => ({ id, inventory_count: parseInt(v, 10) }))
+      .map(([id, v]) => ({
+        id,
+        inventory_count: parseInt(v, 10),
+        previous: allDrugs.find((d) => d.id === id)?.inventory_count,
+      }))
       .filter((u) => Number.isFinite(u.inventory_count) && u.inventory_count >= 0)
     if (updates.length === 0) {
       toast.error('沒有有效的更新')

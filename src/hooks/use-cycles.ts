@@ -144,6 +144,65 @@ export function useUpdateCycleStatus() {
   })
 }
 
+/**
+ * Mark a cycle as Completed = shipped: deduct on-hand inventory and write shipment
+ * ledger rows (atomic + idempotent in the DB function). `items` are per-drug consumed
+ * units (vials for injectable/E3D, tablets for oral/PCT).
+ */
+export function useCompleteCycleShipment() {
+  const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
+  return useMutation({
+    mutationFn: async ({ id, items }: { id: string; items: { drug_id: string; units: number }[] }) => {
+      if (!tenantId) throw new Error('Tenant not resolved')
+      const { error } = await supabase.rpc('complete_cycle_shipment', {
+        p_cycle_id: id,
+        p_tenant_id: tenantId,
+        p_items: items,
+      })
+      if (error) throw error
+      return { id }
+    },
+    onSuccess: ({ id }) => {
+      queryClient.invalidateQueries({ queryKey: ['cycles'], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['cycles', tenantId, id], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['drugs'] })
+      queryClient.invalidateQueries({ queryKey: ['global-inventory-deficits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] })
+      toast.success('課表已完成，已出貨扣庫存')
+    },
+    onError: (error) => toast.error('完成失敗', { description: error.message }),
+  })
+}
+
+/**
+ * Reverse a Completed cycle's shipment: add the deducted stock back from the ledger
+ * snapshot and set the new status.
+ */
+export function useRevertCycleShipment() {
+  const queryClient = useQueryClient()
+  const { tenantId } = useTenant()
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: CycleStatus }) => {
+      const { error } = await supabase.rpc('revert_cycle_shipment', {
+        p_cycle_id: id,
+        p_new_status: status,
+      })
+      if (error) throw error
+      return { id }
+    },
+    onSuccess: ({ id }) => {
+      queryClient.invalidateQueries({ queryKey: ['cycles'], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['cycles', tenantId, id], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['drugs'] })
+      queryClient.invalidateQueries({ queryKey: ['global-inventory-deficits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] })
+      toast.success('已還原庫存')
+    },
+    onError: (error) => toast.error('還原失敗', { description: error.message }),
+  })
+}
+
 export function useAddCycleDrug() {
   const queryClient = useQueryClient()
   const { tenantId } = useTenant()
