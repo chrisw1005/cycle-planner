@@ -1,10 +1,22 @@
 import type { CycleCell, CycleDrug, Supply, CycleSupply, SupplySummary } from '@/types'
 
-/** Count non-skipped CycleCells that belong to an Injectable cycle_drug. */
-export function countInjectionEvents(cells: CycleCell[], cycleDrugs: CycleDrug[]): number {
+/**
+ * Count non-skipped CycleCells that belong to an Injectable cycle_drug.
+ * `excludeE3D` drops HCG-style drugs (ester_type 'E3D'), which are injected with an
+ * insulin needle and must not inflate the 23G/24G needle/syringe counts.
+ */
+export function countInjectionEvents(
+  cells: CycleCell[],
+  cycleDrugs: CycleDrug[],
+  opts?: { excludeE3D?: boolean }
+): number {
   const injectableCdIds = new Set(
     cycleDrugs
-      .filter((cd) => cd.drug?.primary_category === 'Injectable')
+      .filter(
+        (cd) =>
+          cd.drug?.primary_category === 'Injectable' &&
+          (!opts?.excludeE3D || cd.drug?.ester_type !== 'E3D')
+      )
       .map((cd) => cd.id)
   )
   return cells.filter(
@@ -15,12 +27,15 @@ export function countInjectionEvents(cells: CycleCell[], cycleDrugs: CycleDrug[]
 export function computeSupplyQuantity(
   supply: Supply,
   totalWeeks: number,
-  injectionEventCount: number
+  allInjectionCount: number,
+  steroidInjectionCount: number
 ): number {
   const v = Number(supply.rule_value) || 0
   switch (supply.rule_type) {
-    case 'per_injection':
-      return Math.ceil(injectionEventCount * v)
+    case 'per_injection': {
+      const n = supply.injection_basis === 'steroid' ? steroidInjectionCount : allInjectionCount
+      return Math.ceil(n * v)
+    }
     case 'per_day':
       return Math.ceil(totalWeeks * 7 * v)
     case 'per_week':
@@ -35,7 +50,8 @@ export function buildSupplySummaries(
   overrides: Record<string, number | null>,
   supplies: Supply[],
   totalWeeks: number,
-  injectionEventCount: number
+  allInjectionCount: number,
+  steroidInjectionCount: number
 ): SupplySummary[] {
   // Iterate `supplies` (already sorted by display_order) and pick out the
   // selected ones, so the output order in the export matches the order the
@@ -47,7 +63,7 @@ export function buildSupplySummaries(
   const summaries: SupplySummary[] = []
   for (const s of supplies) {
     if (!selectedIds.has(s.id)) continue
-    const auto = computeSupplyQuantity(s, totalWeeks, injectionEventCount)
+    const auto = computeSupplyQuantity(s, totalWeeks, allInjectionCount, steroidInjectionCount)
     const ov = overrides[s.id]
     summaries.push({
       name: s.name,

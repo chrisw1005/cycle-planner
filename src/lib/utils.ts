@@ -54,16 +54,26 @@ export function oralDeficitPackages(deficitTablets: number, tabsPerBox: number |
   return Math.ceil(Math.abs(deficitTablets) / (tabsPerBox || 100))
 }
 
+/**
+ * Format a whole-NTD amount with thousands separators (e.g. 15000 → "15,000").
+ * Returns '' for null/invalid so callers can show a placeholder.
+ */
+export function formatThousands(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return ''
+  return Math.round(value).toLocaleString('en-US')
+}
+
 export const CATEGORY_LABELS: Record<string, string> = {
   Injectable: '針劑',
   Oral: '口服',
   PCT: 'PCT',
+  Other: '其他',
 }
 
 export function groupDeltasByCategory(
   deltas: DrugInventoryDelta[]
 ): { category: string; label: string; items: DrugInventoryDelta[] }[] {
-  const order = ['Injectable', 'Oral', 'PCT']
+  const order = ['Injectable', 'Oral', 'PCT', 'Other']
   const grouped = new Map<string, DrugInventoryDelta[]>()
   for (const d of deltas) {
     if (!grouped.has(d.category)) grouped.set(d.category, [])

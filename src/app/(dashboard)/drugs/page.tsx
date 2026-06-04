@@ -61,7 +61,7 @@ export default function DrugsPage() {
     localStorage.setItem('drugs-view-mode', mode)
   }
 
-  const isOralTarget = inventoryTarget?.primary_category === 'Oral' || inventoryTarget?.primary_category === 'PCT'
+  const isOralTarget = inventoryTarget?.primary_category === 'Oral' || inventoryTarget?.primary_category === 'PCT' || inventoryTarget?.primary_category === 'Other'
 
   const handleInventoryUpdate = () => {
     if (!inventoryTarget) return
@@ -76,7 +76,7 @@ export default function DrugsPage() {
 
   const openInventoryEdit = (drug: Drug) => {
     setInventoryTarget(drug)
-    const isOral = drug.primary_category === 'Oral' || drug.primary_category === 'PCT'
+    const isOral = drug.primary_category === 'Oral' || drug.primary_category === 'PCT' || drug.primary_category === 'Other'
     if (isOral && drug.tabs_per_box) {
       setEditBoxes(Math.floor(drug.inventory_count / drug.tabs_per_box).toString())
       setEditLoose((drug.inventory_count % drug.tabs_per_box).toString())
@@ -193,7 +193,7 @@ export default function DrugsPage() {
             <div className="flex flex-wrap gap-2">
               {globalDeficits?.filter(d => d.deficit < 0).map((d) => {
                 const isE3D = d.ester_type === 'E3D'
-                const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+                const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT' || d.category === 'Other')
                 const shortage = isOral
                   ? `缺 ${oralDeficitPackages(d.deficit, d.tabs_per_box)} ${d.package_unit ?? '盒'}`
                   : isE3D ? `缺 ${Math.abs(d.deficit)} 瓶/劑` : `缺 ${Math.abs(d.deficit)} 瓶`

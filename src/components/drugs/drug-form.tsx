@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DrugImageUpload } from './drug-image-upload'
+import { formatThousands } from '@/lib/utils'
 import type { Drug, DrugTemplate, PrimaryCategory, SubCategory, EsterType } from '@/types'
 
 interface DrugFormProps {
@@ -25,12 +26,13 @@ interface DrugFormProps {
     inventory_count: number
     tabs_per_box: number | null
     package_unit: string
+    cost_price: number | null
     image_url: string | null
   }) => void
   loading?: boolean
 }
 
-const primaryCategories: PrimaryCategory[] = ['Injectable', 'Oral', 'PCT']
+const primaryCategories: PrimaryCategory[] = ['Injectable', 'Oral', 'PCT', 'Other']
 const subCategories: SubCategory[] = ['Test', 'Nor-19', 'DHT', 'AI', 'SERM', 'Prolactin', 'Other']
 const esterTypes: EsterType[] = ['Long', 'Short', 'E3D']
 
@@ -49,14 +51,15 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
   const [inventoryCount, setInventoryCount] = useState(initialData?.inventory_count?.toString() || '0')
   const [tabsPerBox, setTabsPerBox] = useState(initialData?.tabs_per_box?.toString() || '100')
   const [packageUnit, setPackageUnit] = useState(initialData?.package_unit || '盒')
+  const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
   const [inventoryBoxes, setInventoryBoxes] = useState(() => {
-    if (initialData && (initialData.primary_category === 'Oral' || initialData.primary_category === 'PCT') && initialData.tabs_per_box) {
+    if (initialData && (initialData.primary_category === 'Oral' || initialData.primary_category === 'PCT' || initialData.primary_category === 'Other') && initialData.tabs_per_box) {
       return Math.floor(initialData.inventory_count / initialData.tabs_per_box).toString()
     }
     return '0'
   })
   const [inventoryLoose, setInventoryLoose] = useState(() => {
-    if (initialData && (initialData.primary_category === 'Oral' || initialData.primary_category === 'PCT') && initialData.tabs_per_box) {
+    if (initialData && (initialData.primary_category === 'Oral' || initialData.primary_category === 'PCT' || initialData.primary_category === 'Other') && initialData.tabs_per_box) {
       return (initialData.inventory_count % initialData.tabs_per_box).toString()
     }
     return '0'
@@ -98,11 +101,12 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
       ester_type: esterType,
       unit,
       brand: brand.trim() || null,
-      inventory_count: (primaryCategory === 'Oral' || primaryCategory === 'PCT')
+      inventory_count: (primaryCategory === 'Oral' || primaryCategory === 'PCT' || primaryCategory === 'Other')
         ? (parseInt(inventoryBoxes) || 0) * (parseInt(tabsPerBox) || 100) + (parseInt(inventoryLoose) || 0)
         : parseInt(inventoryCount) || 0,
-      tabs_per_box: (primaryCategory === 'Oral' || primaryCategory === 'PCT') ? (parseInt(tabsPerBox) || null) : null,
+      tabs_per_box: (primaryCategory === 'Oral' || primaryCategory === 'PCT' || primaryCategory === 'Other') ? (parseInt(tabsPerBox) || null) : null,
       package_unit: packageUnit,
+      cost_price: parseInt(costPrice) || null,
       image_url: imageUrl,
     })
   }
@@ -217,6 +221,23 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
                 />
               </div>
 
+              {/* Cost price (NTD) */}
+              <div className="space-y-2">
+                <Label htmlFor="costPrice">成本價 (NTD)</Label>
+                <Input
+                  id="costPrice"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value)}
+                  placeholder="e.g. 1500"
+                />
+                {costPrice && Number(costPrice) > 0 && (
+                  <p className="text-xs text-muted-foreground">NT$ {formatThousands(Number(costPrice))}</p>
+                )}
+              </div>
+
               {/* Unit */}
               <div className="space-y-2">
                 <Label>單位</Label>
@@ -290,7 +311,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
               </div>
 
               {/* Package unit + tabs per package (oral only) */}
-              {(primaryCategory === 'Oral' || primaryCategory === 'PCT') && (
+              {(primaryCategory === 'Oral' || primaryCategory === 'PCT' || primaryCategory === 'Other') && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>包裝單位</Label>
@@ -320,7 +341,7 @@ export function DrugForm({ initialData, onSubmit, loading }: DrugFormProps) {
               )}
 
               {/* Inventory */}
-              {(primaryCategory === 'Oral' || primaryCategory === 'PCT') ? (
+              {(primaryCategory === 'Oral' || primaryCategory === 'PCT' || primaryCategory === 'Other') ? (
                 <div className="space-y-2">
                   <Label>庫存數量</Label>
                   <div className="grid grid-cols-2 gap-3">

@@ -44,7 +44,8 @@ const EMPTY_CYCLE_SUPPLIES: import('@/types').CycleSupply[] = []
 interface Props {
   cycleId: string
   totalWeeks: number
-  injectionEventCount: number
+  allInjectionCount: number
+  steroidInjectionCount: number
   enabled: boolean
   onEnabledChange: (v: boolean) => void
   overrides: Record<string, string>
@@ -54,7 +55,8 @@ interface Props {
 export function ExportSuppliesSection({
   cycleId,
   totalWeeks,
-  injectionEventCount,
+  allInjectionCount,
+  steroidInjectionCount,
   enabled,
   onEnabledChange,
   overrides,
@@ -182,7 +184,7 @@ export function ExportSuppliesSection({
           {supplies.map((s) => {
             const sel = selectedMap.get(s.id)
             const checked = !!sel
-            const auto = computeSupplyQuantity(s, totalWeeks, injectionEventCount)
+            const auto = computeSupplyQuantity(s, totalWeeks, allInjectionCount, steroidInjectionCount)
             const ruleSummary =
               s.rule_type === 'fixed'
                 ? `${RULE_LABELS.fixed} ${s.rule_value}`

@@ -9,26 +9,38 @@ interface DrugInfo {
   sub_category?: string | null
   ester_type: EsterType | null
   unit?: string
+  template?: { display_order?: number | null } | null
 }
 
 // Sort orders kept here so cell rendering and the inventory summary table
-// agree on layout. 'Other' last matches the user preference of pushing
-// auxiliary drugs (e.g. isotretinoin) to the end of each category.
-const PRIMARY_CATEGORY_ORDER: Record<string, number> = { Injectable: 0, Oral: 1, PCT: 2 }
+// agree on layout. 'Other' is the 4th top-level category for auxiliary drugs
+// (e.g. isotretinoin), pushed after Injectable/Oral/PCT.
+const PRIMARY_CATEGORY_ORDER: Record<string, number> = { Injectable: 0, Oral: 1, PCT: 2, Other: 3 }
 const SUB_CATEGORY_ORDER: Record<string, number> = {
   Test: 0, 'Nor-19': 1, DHT: 2, AI: 3, SERM: 4, Prolactin: 5, Other: 6,
 }
 
-export function compareDrugForDisplay(
-  a: { primary_category: string; sub_category?: string | null; name: string },
-  b: { primary_category: string; sub_category?: string | null; name: string }
-): number {
+type DrugSortKey = {
+  primary_category: string
+  sub_category?: string | null
+  name: string
+  display_order?: number | null
+  template?: { display_order?: number | null } | null
+}
+
+// Order: primary category → sub category → per-template display_order → name.
+// display_order may be passed directly or read from a joined template; missing
+// values sort last so untemplated drugs trail the curated ordering.
+export function compareDrugForDisplay(a: DrugSortKey, b: DrugSortKey): number {
   const pa = PRIMARY_CATEGORY_ORDER[a.primary_category] ?? 9
   const pb = PRIMARY_CATEGORY_ORDER[b.primary_category] ?? 9
   if (pa !== pb) return pa - pb
   const sa = SUB_CATEGORY_ORDER[a.sub_category ?? 'Other'] ?? 6
   const sb = SUB_CATEGORY_ORDER[b.sub_category ?? 'Other'] ?? 6
   if (sa !== sb) return sa - sb
+  const oa = a.display_order ?? a.template?.display_order ?? Number.MAX_SAFE_INTEGER
+  const ob = b.display_order ?? b.template?.display_order ?? Number.MAX_SAFE_INTEGER
+  if (oa !== ob) return oa - ob
   return a.name.localeCompare(b.name)
 }
 
@@ -203,7 +215,7 @@ export function generateCellsForDrug(
       }
     }
   } else if (
-    (drug.primary_category === 'Oral' || drug.primary_category === 'PCT') &&
+    (drug.primary_category === 'Oral' || drug.primary_category === 'PCT' || drug.primary_category === 'Other') &&
     (cycleDrug.daily_dose || cycleDrug.weekly_dose)
   ) {
     const mode = cycleDrug.schedule_mode || 'daily'

@@ -73,7 +73,7 @@ export interface Person {
 export type PersonFormData = Omit<Person, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'last_cycle_date' | 'cycles'>
 
 // ==================== Drugs ====================
-export type PrimaryCategory = 'Injectable' | 'Oral' | 'PCT'
+export type PrimaryCategory = 'Injectable' | 'Oral' | 'PCT' | 'Other'
 export type SubCategory = 'Test' | 'Nor-19' | 'DHT' | 'AI' | 'SERM' | 'Prolactin' | 'Other'
 export type EsterType = 'Long' | 'Short' | 'E3D'
 
@@ -88,6 +88,7 @@ export interface DrugTemplate {
   default_concentration: number | null
   default_unit: string
   is_system: boolean
+  display_order: number // export ordering within (primary_category, sub_category)
 }
 
 export interface Drug {
@@ -105,6 +106,7 @@ export interface Drug {
   inventory_count: number
   tabs_per_box: number | null
   package_unit: string // oral/PCT package unit (盒/排/瓶/條); injectables ignore
+  cost_price: number | null // purchase cost in NTD (whole integer)
   created_at: string
   updated_at: string
   // Joined
@@ -125,6 +127,7 @@ export interface Cycle {
   status: CycleStatus
   start_date: string | null
   notes: string | null
+  sale_price: number | null // total selling price in NTD (whole integer, manually entered)
   created_at: string
   updated_at: string
   // Joined
@@ -132,7 +135,7 @@ export interface Cycle {
   cycle_drugs?: CycleDrug[]
 }
 
-export type CycleFormData = Omit<Cycle, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'person' | 'cycle_drugs'>
+export type CycleFormData = Omit<Cycle, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'person' | 'cycle_drugs' | 'sale_price'>
 
 // ==================== Cycle Drugs ====================
 export interface CycleDrug {
@@ -222,7 +225,7 @@ export interface ScheduleCellEntry {
 export interface DrugInventoryDelta {
   drug_id: string
   drug_name: string
-  category: 'Injectable' | 'Oral' | 'PCT'
+  category: 'Injectable' | 'Oral' | 'PCT' | 'Other'
   ester_type: EsterType | null
   needed_ml: number         // Injectable: ml; Oral/PCT: total tablets
   needed_vials: number      // Injectable: vials; Oral/PCT: boxes
@@ -260,6 +263,7 @@ export interface Supply {
   rule_value: number
   is_system: boolean
   display_order: number
+  injection_basis: 'all' | 'steroid' // 'steroid' = per_injection count excludes E3D (HCG)
   created_at: string
   updated_at: string
 }

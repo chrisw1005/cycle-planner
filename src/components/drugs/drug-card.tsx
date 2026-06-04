@@ -6,6 +6,7 @@ import { InventoryBadge } from './inventory-badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { MoreHorizontal, Pencil, Trash2, Pill } from 'lucide-react'
+import { formatThousands } from '@/lib/utils'
 import type { Drug } from '@/types'
 import Link from 'next/link'
 
@@ -22,6 +23,7 @@ const categoryColors: Record<string, string> = {
   Injectable: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
   Oral: 'bg-purple-500/10 text-purple-500 border-purple-500/30',
   PCT: 'bg-teal-500/10 text-teal-500 border-teal-500/30',
+  Other: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/30',
 }
 
 export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit, threshold, deficit }: DrugCardProps) {
@@ -93,6 +95,11 @@ export function DrugCard({ drug, isAdmin, onDelete, onInventoryEdit, threshold, 
         <p className="text-sm text-muted-foreground">
           濃度: <span className="font-medium text-foreground">{drug.concentration} {drug.unit || 'mg/ml'}</span>
         </p>
+        {drug.cost_price != null && drug.cost_price > 0 && (
+          <p className="text-sm text-muted-foreground">
+            成本: <span className="font-medium text-foreground">NT$ {formatThousands(drug.cost_price)}</span>
+          </p>
+        )}
         <div className="pt-1.5 flex items-center gap-1">
           <button type="button" onClick={() => onInventoryEdit?.(drug)}>
             <InventoryBadge count={drug.inventory_count} unit={drug.primary_category !== 'Injectable' ? '顆' : ''} threshold={threshold} />

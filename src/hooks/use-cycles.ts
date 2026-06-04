@@ -38,7 +38,7 @@ export function useCycle(id: string) {
           person:people(id, nickname),
           cycle_drugs(
             *,
-            drug:drugs(id, name, concentration, primary_category, sub_category, ester_type, inventory_count, tabs_per_box, package_unit, template_id)
+            drug:drugs(id, name, concentration, primary_category, sub_category, ester_type, inventory_count, tabs_per_box, package_unit, template_id, template:drug_templates(display_order))
           )
         `)
         .eq('tenant_id', tenantId!)
@@ -138,6 +138,7 @@ export function useUpdateCycleStatus() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['cycles'], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['cycles', tenantId, data.id], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['people'], refetchType: 'all' })
       toast.success('狀態已更新')
     },
     onError: (error) => toast.error('更新失敗', { description: error.message }),
@@ -167,6 +168,7 @@ export function useCompleteCycleShipment() {
       queryClient.invalidateQueries({ queryKey: ['cycles'], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['cycles', tenantId, id], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['drugs'] })
+      queryClient.invalidateQueries({ queryKey: ['people'], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['global-inventory-deficits'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] })
       toast.success('課表已完成，已出貨扣庫存')
@@ -195,6 +197,7 @@ export function useRevertCycleShipment() {
       queryClient.invalidateQueries({ queryKey: ['cycles'], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['cycles', tenantId, id], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['drugs'] })
+      queryClient.invalidateQueries({ queryKey: ['people'], refetchType: 'all' })
       queryClient.invalidateQueries({ queryKey: ['global-inventory-deficits'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] })
       toast.success('已還原庫存')

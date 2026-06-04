@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { useTemplates, useDeleteTemplate, useUpdateTemplate, useRemoveTemplateDrug, useAddTemplateDrug } from '@/hooks/use-templates'
 import { useDrugs } from '@/hooks/use-drugs'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
+import { CycleStatusSelect } from '@/components/cycles/cycle-status-select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -158,9 +159,13 @@ export default function CyclesPage() {
                     {cycle.start_date ? new Date(cycle.start_date).toLocaleDateString('zh-TW') : '—'}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusColors[cycle.status]}>
-                      {statusLabels[cycle.status]}
-                    </Badge>
+                    {isAdmin ? (
+                      <CycleStatusSelect cycle={cycle} allDrugs={allDrugs ?? []} />
+                    ) : (
+                      <Badge variant="outline" className={statusColors[cycle.status]}>
+                        {statusLabels[cycle.status]}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-center gap-1">
@@ -265,7 +270,7 @@ export default function CyclesPage() {
                 {(() => {
                   const selectedDrug = allDrugs?.find(d => d.id === addDrugId)
                   const isInjectable = selectedDrug?.primary_category === 'Injectable'
-                  const isOral = selectedDrug && (selectedDrug.primary_category === 'Oral' || selectedDrug.primary_category === 'PCT')
+                  const isOral = selectedDrug && (selectedDrug.primary_category === 'Oral' || selectedDrug.primary_category === 'PCT' || selectedDrug.primary_category === 'Other')
                   return (
                     <>
                       {/* Schedule mode selector — for both injectable and oral */}
