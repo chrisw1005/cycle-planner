@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { DrugInventoryDelta } from '@/types'
+import type { DrugInventoryDelta, InventoryTransaction, InventoryTxKind } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -82,4 +82,51 @@ export function groupDeltasByCategory(
   return order
     .filter(cat => grouped.has(cat))
     .map(cat => ({ category: cat, label: CATEGORY_LABELS[cat] || cat, items: grouped.get(cat)! }))
+}
+
+// ==================== Inventory daily aggregation ====================
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Local 'YYYY-MM-DD' key for an inventory transaction (aligns with the ledger's
+ * toLocaleDateString display — avoids UTC day-boundary drift). */
+export function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+export interface DayInventoryAgg {
+  date: string // local 'YYYY-MM-DD'
+  restock: { count: number; delta: number }
+  shipment: { count: number; delta: number }
+  adjustment: { count: number; delta: number }
+  items: { drug_name: string; delta: number; kind: InventoryTxKind }[]
+}
+
+/**
+ * Bucket inventory transactions by local calendar day, splitting each day's
+ * movements into restock / shipment / adjustment totals plus a flat item list.
+ * Used by the overview calendar/heatmap visualization.
+ */
+export function aggregateTransactionsByDay(
+  txs: InventoryTransaction[]
+): Map<string, DayInventoryAgg> {
+  const map = new Map<string, DayInventoryAgg>()
+  for (const tx of txs) {
+    const key = localDayKey(new Date(tx.created_at))
+    let day = map.get(key)
+    if (!day) {
+      day = {
+        date: key,
+        restock: { count: 0, delta: 0 },
+        shipment: { count: 0, delta: 0 },
+        adjustment: { count: 0, delta: 0 },
+        items: [],
+      }
+      map.set(key, day)
+    }
+    const bucket = day[tx.kind]
+    bucket.count += 1
+    bucket.delta += tx.delta
+    day.items.push({ drug_name: tx.drug?.name ?? '—', delta: tx.delta, kind: tx.kind })
+  }
+  return map
 }

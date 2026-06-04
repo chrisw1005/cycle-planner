@@ -66,7 +66,7 @@ export function InventoryLedger() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-border">
+        <ul className="max-h-[420px] divide-y divide-border overflow-y-auto -mr-2 pr-2">
           {events.map((ev) => {
             const isIn = ev.netDelta > 0
             const person = ev.cycle?.person?.nickname
