@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState, useMemo, useCallback } from 'react'
-import { useCycle, useCycleCells, useAddCycleDrug, useRemoveCycleDrug, useUpdateCycleDrug, useSaveCycleCells, useUpdateCycle, useUpdateCycleStatus, useDeleteCycle } from '@/hooks/use-cycles'
+import { useCycle, useCycleCells, useAddCycleDrug, useRemoveCycleDrug, useUpdateCycleDrug, useSaveCycleCells, useUpdateCycle, useUpdateCycleStatus, useCompleteCycleShipment, useRevertCycleShipment, useDeleteCycle } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { useAuth } from '@/hooks/use-auth'
 import { ScheduleGrid } from '@/components/cycles/schedule-grid'
@@ -38,6 +38,8 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const saveCells = useSaveCycleCells()
   const updateCycle = useUpdateCycle()
   const updateStatus = useUpdateCycleStatus()
+  const completeCycle = useCompleteCycleShipment()
+  const revertCycle = useRevertCycleShipment()
   const { data: allDrugs } = useDrugs()
   const { isAdmin } = useAuth()
 
@@ -185,21 +187,24 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
     return [...baseCells, ...movedTargets]
   }, [generatedCells, localOverrides, activeSkips, localMoves, id])
 
-  // Inventory deltas (adjusted for skipped cells) — Testing cycles don't affect inventory
-  const isTesting = cycle?.status === 'Testing'
+  // Inventory deltas (adjusted for skipped cells) — computed for every status so the
+  // summary + the completion deduction always have the per-drug needs available.
   const inventoryDeltas = useMemo(() => {
-    if (!cycle?.cycle_drugs || isTesting) return []
+    if (!cycle?.cycle_drugs) return []
     const base = calculateInventoryDeltas(cycle.cycle_drugs as any, allDrugs as any)
     return adjustDeltasForSkippedCells(base, displayCells, cycle.cycle_drugs as any)
-  }, [cycle, allDrugs, displayCells, isTesting])
+  }, [cycle, allDrugs, displayCells])
 
+  // Shortage highlight only applies to in-progress (排制中) cycles. Completed cycles
+  // have already shipped (stock deducted); Testing/Archived don't drive purchasing.
+  const showDeficits = cycle?.status === 'Scheduled' || cycle?.status === 'Planned'
   const inventoryDeficitsMap = useMemo(() => {
     const map = new Map<string, number>()
-    if (!isTesting) {
+    if (showDeficits) {
       inventoryDeltas.forEach((d) => map.set(d.drug_id, d.deficit))
     }
     return map
-  }, [inventoryDeltas, isTesting])
+  }, [inventoryDeltas, showDeficits])
 
   // Handlers
   const handleAddDrug = useCallback((data: { drug_id: string; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; custom_days?: number[]; interval_days?: number; start_week: number; end_week: number }) => {
@@ -375,6 +380,31 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
     updateStatus.mutate({ id, status: 'Archived' })
   }, [id, updateStatus])
 
+  const handleStatusChange = useCallback((next: CycleStatus) => {
+    if (!cycle || next === cycle.status) return
+    // → Completed = shipped: deduct on-hand inventory + write shipment ledger.
+    if (next === 'Completed') {
+      const items = inventoryDeltas
+        .map((d) => {
+          const isE3D = d.ester_type === 'E3D'
+          const isOral = !isE3D && (d.category === 'Oral' || d.category === 'PCT')
+          // inventory_count units: tablets for oral/PCT, vials for injectable/E3D
+          const units = isOral ? Math.round(d.needed_ml) : d.needed_vials
+          return { drug_id: d.drug_id, units }
+        })
+        .filter((it) => it.units > 0)
+      completeCycle.mutate({ id, items })
+      return
+    }
+    // Completed → 排制中/測試中: restore the deducted stock from the ledger snapshot.
+    if (cycle.status === 'Completed' && next !== 'Archived') {
+      revertCycle.mutate({ id, status: next })
+      return
+    }
+    // Everything else (incl. Completed → Archived) is a plain status change.
+    updateStatus.mutate({ id, status: next })
+  }, [cycle, id, inventoryDeltas, completeCycle, revertCycle, updateStatus])
+
   const isEditable = isAdmin && cycle?.status !== 'Archived'
 
   if (isLoading) {
@@ -462,7 +492,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
             <>
               <Select
                 value={cycle.status}
-                onValueChange={(v: string | null) => v && updateStatus.mutate({ id, status: v as CycleStatus })}
+                onValueChange={(v: string | null) => v && handleStatusChange(v as CycleStatus)}
               >
                 <SelectTrigger className="w-32">
                   <SelectValue>

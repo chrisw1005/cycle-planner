@@ -12,6 +12,7 @@ import { oralDeficitPackages } from '@/lib/utils'
 import { Users, Pill, Calendar, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { DeficitActions } from '@/components/drugs/deficit-export-menu'
+import { InventoryLedger } from '@/components/dashboard/inventory-ledger'
 import type { CycleStatus } from '@/types'
 
 interface DashboardStats {
@@ -186,7 +187,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    以下藥品在所有進行中課表（排除測試中）的總需求超過現有庫存：
+                    以下藥品在所有排制中課表的總需求超過現有庫存：
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {deficitDrugs.map((d) => {
@@ -206,6 +207,8 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             )}
+
+            <InventoryLedger />
           </>
         )
       })()}
