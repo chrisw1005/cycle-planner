@@ -1,53 +1,73 @@
-const CACHE_NAME = 'cycle-planner-v3'
+// Bump this whenever the caching logic changes. On activate, every cache whose
+// name doesn't match is deleted, so bumping the version purges all stale assets
+// left behind by a previous service worker.
+const CACHE_NAME = 'cycle-planner-v4'
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting())
+self.addEventListener('install', () => {
+  // Take over as soon as the new worker is installed instead of waiting for all
+  // old tabs to close — paired with clients.claim() below this makes a deploy
+  // reach already-open tabs on their next request.
+  self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((names) =>
-      Promise.all(
-        names
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+    (async () => {
+      const names = await caches.keys()
+      await Promise.all(
+        names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
       )
-    ).then(() => self.clients.claim())
+      await self.clients.claim()
+    })()
   )
 })
+
+// Only Next's build-output assets are safe to cache-first: their filenames are
+// content-hashed, so a new build always requests a new URL and never reuses a
+// stale entry. Everything else must hit the network first so a deploy shows up
+// immediately instead of being shadowed by a previously cached copy.
+function isImmutableAsset(url) {
+  return url.pathname.startsWith('/_next/static/')
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event
 
-  // Skip non-GET requests
   if (request.method !== 'GET') return
 
-  // Skip external API requests (Supabase etc.) — never cache data queries
-  if (!request.url.startsWith(self.location.origin)) return
+  const url = new URL(request.url)
 
-  // Network-first for API routes and navigation
-  if (request.url.includes('/api/') || request.mode === 'navigate') {
+  // Never intercept cross-origin requests (Supabase API, third-party CDNs, ...).
+  if (url.origin !== self.location.origin) return
+
+  // App API routes (auth etc.): always go to the network, never cache.
+  if (url.pathname.startsWith('/api/')) return
+
+  // Content-hashed immutable assets: cache-first for speed/offline.
+  if (isImmutableAsset(url)) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          return response
-        })
-        .catch(() => caches.match(request))
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+            return response
+          })
+      )
     )
     return
   }
 
-  // Cache-first for static assets
+  // Everything else — HTML documents, RSC payloads, icons, fonts, the manifest:
+  // network-first so the latest deploy always wins; fall back to cache offline.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached
-      return fetch(request).then((response) => {
+    fetch(request)
+      .then((response) => {
         const clone = response.clone()
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
         return response
       })
-    })
+      .catch(() => caches.match(request))
   )
 })
