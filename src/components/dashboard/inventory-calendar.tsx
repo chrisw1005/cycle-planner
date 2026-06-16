@@ -102,7 +102,33 @@ export function InventoryCalendar() {
     setAnchor(new Date(base.getFullYear(), base.getMonth(), 1))
   }, [txs])
 
-  if (!txs || txs.length === 0 || !anchor) return null
+  // Ledger still loading — render nothing to avoid a flash of empty state.
+  if (!txs) return null
+
+  // Loaded but this tenant has no inventory movements yet: show an empty-state
+  // card instead of hiding the whole section, so the feature stays discoverable
+  // and explains how movements get recorded.
+  if (txs.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            庫存異動
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            尚無庫存異動記錄。完成課表（出貨扣庫存）或在批次庫存編輯進貨／調整後，這裡會顯示異動的月曆、熱力圖與水位變化。
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Data present but the anchor month hasn't been initialized yet (first paint
+  // before the effect runs).
+  if (!anchor) return null
 
   const year = anchor.getFullYear()
   const month0 = anchor.getMonth()
