@@ -139,19 +139,20 @@ export async function exportScheduleToPDF(
       row.push(displayLines.join('\n'))
     }
 
-    // When every day cell in the row has the same non-zero line count, the
-    // row fits content with zero slack. Append a blank line to one cell so
-    // autoTable allocates one extra drug-row of height — gives the cells
-    // breathing room without changing visible output (didDrawCell repaints).
+    // Always allocate one extra drug-row of height per week: append a blank
+    // line to the tallest day cell so autoTable sizes the row to
+    // (tallest cell's line count + 1). This gives every week breathing room
+    // instead of packing cells to the tallest content. The blank line is
+    // invisible because didDrawCell repaints each cell from entryLayoutsMap.
     const dayLineCounts: number[] = []
     for (let day = 1; day <= 7; day++) {
       const layouts = entryLayoutsMap.get(`Week ${week}-${day}`) || []
       dayLineCounts.push(layouts.reduce((sum, l) => sum + (l.wrapped ? 2 : 1), 0))
     }
-    const minLines = Math.min(...dayLineCounts)
     const maxLines = Math.max(...dayLineCounts)
-    if (minLines === maxLines && maxLines > 0) {
-      row[1] = row[1] + '\n '
+    if (maxLines > 0) {
+      const tallestDay = dayLineCounts.indexOf(maxLines)
+      row[tallestDay + 1] = row[tallestDay + 1] + '\n '
     }
 
     body.push(row)

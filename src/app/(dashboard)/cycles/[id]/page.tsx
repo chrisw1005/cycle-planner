@@ -9,6 +9,7 @@ import { DrugSelector } from '@/components/cycles/drug-selector'
 import { CalculationSummary } from '@/components/cycles/calculation-summary'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
 import { SaveTemplateDialog } from '@/components/cycles/save-template-dialog'
+import { EditCycleDrugDialog } from '@/components/cycles/edit-cycle-drug-dialog'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
 import { getDoseUnit, cn, formatThousands } from '@/lib/utils'
@@ -25,6 +26,7 @@ import Link from 'next/link'
 import { statusColors, statusLabels } from '@/lib/constants/cycle-status'
 import type { CycleStatus, CycleCell } from '@/types'
 import type { OverlapReplaceOps } from '@/components/cycles/drug-selector'
+import type { EditableCycleDrug, CycleDrugUpdate } from '@/components/cycles/edit-cycle-drug-dialog'
 import type { CellMoveData } from '@/components/cycles/schedule-grid'
 
 export default function CycleBuilderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,6 +52,7 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const [weekChangeDialogOpen, setWeekChangeDialogOpen] = useState(false)
   const [pendingWeekDelta, setPendingWeekDelta] = useState(0)
+  const [editingCycleDrug, setEditingCycleDrug] = useState<EditableCycleDrug | null>(null)
   const [localOverrides, setLocalOverrides] = useState<Map<string, { value: string; ml: number | null }>>(new Map())
   const [localSkips, setLocalSkips] = useState<Set<string> | null>(null)
   const [localNotes, setLocalNotes] = useState<string | null>(null)
@@ -224,6 +227,14 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
       interval_days: data.interval_days || undefined,
     })
   }, [id, addCycleDrug, cycle, updateCycle])
+
+  const handleUpdateCycleDrug = useCallback((updates: CycleDrugUpdate) => {
+    // Auto-expand total weeks if the new end_week exceeds current cycle length
+    if (cycle && updates.end_week > cycle.total_weeks) {
+      updateCycle.mutate({ id, total_weeks: updates.end_week })
+    }
+    updateCycleDrug.mutate({ cycle_id: id, ...updates })
+  }, [id, updateCycleDrug, cycle, updateCycle])
 
   const handleReplaceDrug = useCallback(async (ops: OverlapReplaceOps) => {
     // Remove fully covered entries
@@ -605,34 +616,60 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                 }
                 return Array.from(grouped.values()).map((entries) => (
                   <div key={entries[0].drug_id} className="flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-sm">
-                    <Link href={`/drugs/${entries[0].drug_id}/edit`} className="font-medium hover:underline">
+                    <Link href={`/drugs/${entries[0].drug_id}/edit?from=${encodeURIComponent(`/cycles/${id}`)}`} className="font-medium hover:underline">
                       {entries[0].drug?.name}
                     </Link>
-                    {entries.map((cd, i) => (
-                      <span key={cd.id} className="flex items-center gap-1">
-                        {i > 0 && <span className="text-muted-foreground/50">·</span>}
-                        <span className="text-muted-foreground">
-                          {cd.injection_ml
-                            ? `${cd.injection_ml}ml × ${cd.total_injections}次`
-                            : cd.weekly_dose
-                              ? `${cd.weekly_dose}${getDoseUnit(cd.drug?.unit)}/wk`
-                              : `${cd.daily_dose}${getDoseUnit(cd.drug?.unit)}/day`}
+                    {entries.map((cd, i) => {
+                      const doseText = cd.injection_ml
+                        ? `${cd.injection_ml}ml × ${cd.total_injections}次`
+                        : cd.weekly_dose
+                          ? `${cd.weekly_dose}${getDoseUnit(cd.drug?.unit)}/wk`
+                          : `${cd.daily_dose}${getDoseUnit(cd.drug?.unit)}/day`
+                      return (
+                        <span key={cd.id} className="flex items-center gap-1">
+                          {i > 0 && <span className="text-muted-foreground/50">·</span>}
+                          {isEditable ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingCycleDrug({
+                                id: cd.id,
+                                drug_id: cd.drug_id,
+                                start_week: cd.start_week,
+                                end_week: cd.end_week,
+                                weekly_dose: cd.weekly_dose,
+                                daily_dose: cd.daily_dose,
+                                injection_ml: cd.injection_ml,
+                                total_injections: cd.total_injections,
+                                schedule_mode: cd.schedule_mode,
+                                drug: cd.drug ? { name: cd.drug.name, unit: cd.drug.unit } : null,
+                              })}
+                              className="-mx-0.5 flex items-center gap-1 rounded px-0.5 text-muted-foreground hover:bg-background/60 hover:underline"
+                              title="點擊修改劑量與週數"
+                            >
+                              <span>{doseText}</span>
+                              <span>W{cd.start_week}-{cd.end_week}</span>
+                            </button>
+                          ) : (
+                            <>
+                              <span className="text-muted-foreground">{doseText}</span>
+                              <span className="text-muted-foreground">
+                                W{cd.start_week}-{cd.end_week}
+                              </span>
+                            </>
+                          )}
+                          {isEditable && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => removeCycleDrug.mutate({ id: cd.id, cycle_id: id })}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
                         </span>
-                        <span className="text-muted-foreground">
-                          W{cd.start_week}-{cd.end_week}
-                        </span>
-                        {isEditable && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={() => removeCycleDrug.mutate({ id: cd.id, cycle_id: id })}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </span>
-                    ))}
+                      )
+                    })}
                   </div>
                 ))
               })()}
@@ -726,6 +763,16 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
           interval_days: cd.interval_days,
           drug: cd.drug ? { name: cd.drug.name } : null,
         })) || []}
+      />
+
+      {/* Edit Cycle Drug Dialog — change dose / week range of an existing entry */}
+      <EditCycleDrugDialog
+        key={editingCycleDrug?.id ?? 'edit-cd-closed'}
+        open={editingCycleDrug !== null}
+        onClose={() => setEditingCycleDrug(null)}
+        cycleDrug={editingCycleDrug}
+        totalWeeks={cycle.total_weeks}
+        onSave={handleUpdateCycleDrug}
       />
 
       {/* Delete Confirmation Dialog */}
