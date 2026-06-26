@@ -228,7 +228,7 @@ export function useUpdateCycleDrug() {
   const queryClient = useQueryClient()
   const { tenantId } = useTenant()
   return useMutation({
-    mutationFn: async ({ id, cycle_id, ...updates }: { id: string; cycle_id: string; start_week?: number; end_week?: number }) => {
+    mutationFn: async ({ id, cycle_id, ...updates }: { id: string; cycle_id: string; start_week?: number; end_week?: number; weekly_dose?: number; daily_dose?: number; injection_ml?: number; total_injections?: number; schedule_mode?: string; custom_days?: number[]; interval_days?: number }) => {
       const { data, error } = await supabase.from('cycle_drugs').update(updates).eq('id', id).select('*, drug:drugs(*)').single()
       if (error) throw error
       return { ...data, cycle_id }
