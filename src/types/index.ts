@@ -283,3 +283,15 @@ export interface SupplySummary {
   unit: string
   quantity: number
 }
+
+// Rich-text export note. name === null is the tenant's single active note
+// (shared across cycles); a non-null name is a saved, reusable template.
+// content holds the Tiptap document JSON.
+export interface ExportNote {
+  id: string
+  tenant_id: string
+  name: string | null
+  content: unknown
+  created_at: string
+  updated_at: string
+}

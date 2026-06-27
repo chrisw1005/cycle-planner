@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useCycle, useCycleCells, useCycles } from '@/hooks/use-cycles'
 import { useDrugs } from '@/hooks/use-drugs'
 import { generateAllCells } from '@/lib/calculations/schedule-engine'
@@ -17,7 +17,10 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ExportSuppliesSection } from './export-supplies-section'
-import { FileSpreadsheet, FileText, XIcon } from 'lucide-react'
+import { ExportNoteSection, type ExportNoteSectionHandle } from './export-note-section'
+import { renderNoteToPageSlices } from '@/lib/export/note-pdf'
+import { FileSpreadsheet, FileText, Loader2, XIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import type { CycleCell } from '@/types'
 
 
@@ -58,6 +61,20 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
       localStorage.setItem('cycle-export-include-supplies', v ? 'true' : 'false')
     }
   }
+
+  const [includeNote, setIncludeNote] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cycle-export-include-note') === 'true'
+    }
+    return false
+  })
+  const handleIncludeNoteChange = (v: boolean) => {
+    setIncludeNote(v)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cycle-export-include-note', v ? 'true' : 'false')
+    }
+  }
+  const noteRef = useRef<ExportNoteSectionHandle>(null)
   const { data: allSupplies } = useSupplies()
   const { data: cycleSupplies } = useCycleSupplies(id)
   // Override quantities are a per-export tweak — kept in local state, not
@@ -157,11 +174,32 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
     exportScheduleToXLSX(cycle.name || `${personName} Cycle`, personName, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date, supplyArg)
   }
 
-  const handlePDFExport = () => {
-    if (!cycle) return
-    const title = buildPdfTitle()
-    const supplyArg = includeSupplies && supplySummaries.length > 0 ? supplySummaries : undefined
-    exportScheduleToPDF(title, cycle.total_weeks, displayCells, inventoryDeltas, cycle.start_date, includeTitle, supplyArg)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const handlePDFExport = async () => {
+    if (!cycle || exportingPdf) return
+    setExportingPdf(true)
+    try {
+      const title = buildPdfTitle()
+      const supplyArg = includeSupplies && supplySummaries.length > 0 ? supplySummaries : undefined
+      const noteSlices =
+        includeNote && noteRef.current && !noteRef.current.isEmpty()
+          ? await renderNoteToPageSlices(noteRef.current.getHTML())
+          : undefined
+      await exportScheduleToPDF(
+        title,
+        cycle.total_weeks,
+        displayCells,
+        inventoryDeltas,
+        cycle.start_date,
+        includeTitle,
+        supplyArg,
+        noteSlices
+      )
+    } catch (e) {
+      toast.error('PDF 匯出失敗', { description: e instanceof Error ? e.message : undefined })
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   return (
@@ -192,8 +230,8 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
               <FileSpreadsheet className="mr-1.5 h-4 w-4" />
               XLSX
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePDFExport} disabled={isLoading}>
-              <FileText className="mr-1.5 h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={handlePDFExport} disabled={isLoading || exportingPdf}>
+              {exportingPdf ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
               PDF
             </Button>
             <DialogClose render={<Button variant="ghost" size="icon-sm" />}>
@@ -301,6 +339,12 @@ export function CycleExportDialog({ id, open, onOpenChange }: CycleExportDialogP
                 </Table>
               </div>
             )}
+
+            <ExportNoteSection
+              ref={noteRef}
+              enabled={includeNote}
+              onEnabledChange={handleIncludeNoteChange}
+            />
           </div>
         )}
       </DialogContent>

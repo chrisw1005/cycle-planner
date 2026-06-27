@@ -4,6 +4,22 @@ import { formatOralInventory, getDayLabels, groupDeltasByCategory } from '@/lib/
 import type { CycleCell, DrugInventoryDelta, SupplySummary } from '@/types'
 import { loadCJKFont } from './pdf-fonts'
 
+// Geometry for the optional rich-text note pages (A4 landscape = 297×210mm),
+// kept here (html2canvas-free) so note-pdf.ts can size slices to match.
+export const NOTE_PDF = {
+  leftMM: 14,
+  headingMM: 14, // baseline y of the 備註 heading on the first note page
+  contentTopMM: 26, // y where note image slices start (below the heading)
+  contentWidthMM: 297 - 2 * 14, // 269
+  sliceMaxHMM: 210 - 26 - 14, // 170 — max height of one note page slice
+}
+
+// One page-height slice of the rasterized note (produced by note-pdf.ts).
+export interface NotePageSlice {
+  dataUrl: string
+  hMM: number
+}
+
 // Split "DrugName 0.8ml" or "DrugName 30mg (3)" into [name, dose]
 function splitDrugEntry(v: string): [string, string] | null {
   const match = v.match(/^(.+?)\s+(\d[\d.]*\s*(?:ml|mg|IU|mcg).*)$/i)
@@ -37,7 +53,8 @@ export async function exportScheduleToPDF(
   deltas?: DrugInventoryDelta[],
   startDate?: string | null,
   includeTitle: boolean = true,
-  supplies?: SupplySummary[]
+  supplies?: SupplySummary[],
+  noteSlices?: NotePageSlice[]
 ) {
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -494,6 +511,21 @@ export async function exportScheduleToPDF(
         tableWidth: columnWidth,
       })
     }
+  }
+
+  // Optional rich-text note: each pre-sliced page-height image on its own page,
+  // with a 備註 heading on the first note page.
+  if (noteSlices && noteSlices.length > 0) {
+    noteSlices.forEach((slice, i) => {
+      doc.addPage()
+      if (i === 0) {
+        doc.setFont(fontName, 'normal', 'bold')
+        doc.setFontSize(14)
+        doc.setTextColor(0)
+        doc.text(hasCJK ? '備註' : 'Notes', NOTE_PDF.leftMM, NOTE_PDF.headingMM)
+      }
+      doc.addImage(slice.dataUrl, 'PNG', NOTE_PDF.leftMM, NOTE_PDF.contentTopMM, NOTE_PDF.contentWidthMM, slice.hMM)
+    })
   }
 
   doc.save(`${title.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`)
