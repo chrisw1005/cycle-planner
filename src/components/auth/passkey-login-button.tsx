@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { Button } from '@/components/ui/button'
 import { Fingerprint } from 'lucide-react'
@@ -9,7 +8,6 @@ import { toast } from 'sonner'
 
 export function PasskeyLoginButton() {
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handlePasskeyLogin = async () => {
     setLoading(true)
@@ -43,8 +41,8 @@ export function PasskeyLoginButton() {
       }
 
       toast.success('登入成功')
-      router.push('/')
-      router.refresh()
+      // Reload the root providers after the server has set the session cookie.
+      window.location.replace('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Passkey 登入失敗'
       if (!message.includes('cancelled') && !message.includes('abort')) {

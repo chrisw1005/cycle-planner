@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +12,6 @@ export default function DevLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -43,8 +41,8 @@ export default function DevLoginPage() {
     }
 
     toast.success('開發者登入成功')
-    router.push('/dev/dashboard')
-    router.refresh()
+    // Reload the root providers so they read the newly authenticated session.
+    window.location.replace('/dev/dashboard')
   }
 
   return (

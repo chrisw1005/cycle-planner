@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +15,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false)
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,8 +44,9 @@ export default function LoginPage() {
     ) {
       setShowPasskeyPrompt(true)
     } else {
-      router.push('/')
-      router.refresh()
+      // Recreate TenantProvider with the new cookie; router.refresh() preserves
+      // its pre-login session state and leaves tenant-scoped queries disabled.
+      window.location.replace('/')
     }
   }
 
@@ -107,8 +106,7 @@ export default function LoginPage() {
 
       {showPasskeyPrompt && (
         <PasskeyRegisterPrompt onComplete={() => {
-          router.push('/')
-          router.refresh()
+          window.location.replace('/')
         }} />
       )}
     </div>
