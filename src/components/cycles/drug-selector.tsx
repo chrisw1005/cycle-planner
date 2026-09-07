@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { getDoseUnit } from '@/lib/utils'
+import { cn, formatOralInventory, getDoseUnit } from '@/lib/utils'
 import type { Drug } from '@/types'
 
 interface AddData {
@@ -47,6 +47,15 @@ export interface OverlapReplaceOps {
   newData: AddData
 }
 
+const esterLabels: Record<string, string> = { Long: '長效', Short: '短效', E3D: 'E3D' }
+
+/** On-hand stock: injectables (incl. E3D) count vials, oral/PCT/Other count tablets (shown as whole packages + loose). */
+function formatDrugStock(d: Drug): string {
+  if (d.inventory_count <= 0) return '無庫存'
+  if (d.primary_category === 'Injectable') return `${d.inventory_count} 瓶`
+  return formatOralInventory(d.inventory_count, d.tabs_per_box, d.package_unit ?? '盒')
+}
+
 interface DrugSelectorProps {
   open: boolean
   onClose: () => void
@@ -58,6 +67,11 @@ interface DrugSelectorProps {
 
 export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, existingCycleDrugs }: DrugSelectorProps) {
   const { data: drugs } = useDrugs()
+  const [lowStockThreshold] = useState(() => {
+    if (typeof window === 'undefined') return 1
+    const saved = parseInt(localStorage.getItem('lowStockThreshold') ?? '')
+    return isNaN(saved) ? 1 : saved
+  })
   const [selectedDrugId, setSelectedDrugId] = useState('')
   const [weeklyDose, setWeeklyDose] = useState('')
   const [dailyDose, setDailyDose] = useState('')
@@ -330,7 +344,14 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
                       if (!value) return null
                       const d = drugs?.find(drug => drug.id === value)
                       if (!d) return value
-                      return `${d.name} (${d.primary_category}${d.ester_type ? ` - ${d.ester_type === 'Long' ? '長效' : d.ester_type === 'Short' ? '短效' : 'E3D'}` : ''})`
+                      return (
+                        <>
+                          <span className="truncate">
+                            {d.name} ({d.primary_category}{d.ester_type ? ` - ${esterLabels[d.ester_type]}` : ''})
+                          </span>
+                          {d.brand && <span className="shrink-0 text-muted-foreground/60">{d.brand}</span>}
+                        </>
+                      )
                     }}
                   </SelectValue>
                 </SelectTrigger>
@@ -346,16 +367,25 @@ export function DrugSelector({ open, onClose, onAdd, onReplace, totalWeeks, exis
                     return Array.from(grouped.entries()).map(([cat, items]) => (
                       <SelectGroup key={cat}>
                         <SelectLabel>{categoryLabels[cat] || cat}</SelectLabel>
-                        {items.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}{d.ester_type ? ` (${d.ester_type === 'Long' ? '長效' : d.ester_type === 'Short' ? '短效' : 'E3D'})` : ''}
-                            {(() => {
-                              const t = typeof window !== 'undefined' ? parseInt(localStorage.getItem('lowStockThreshold') ?? '') : NaN
-                              const threshold = isNaN(t) ? 1 : t
-                              return d.inventory_count <= threshold ? ' ⚠️' : ''
-                            })()}
-                          </SelectItem>
-                        ))}
+                        {items.map((d) => {
+                          const isLow = d.inventory_count <= lowStockThreshold
+                          return (
+                            <SelectItem key={d.id} value={d.id}>
+                              <span className="truncate">
+                                {d.name}{d.ester_type ? ` (${esterLabels[d.ester_type]})` : ''}
+                              </span>
+                              {d.brand && <span className="truncate text-muted-foreground/60">{d.brand}</span>}
+                              <span
+                                className={cn(
+                                  'ml-auto shrink-0 tabular-nums',
+                                  isLow ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground/60'
+                                )}
+                              >
+                                {formatDrugStock(d)}{isLow ? ' ⚠️' : ''}
+                              </span>
+                            </SelectItem>
+                          )
+                        })}
                       </SelectGroup>
                     ))
                   })()}
