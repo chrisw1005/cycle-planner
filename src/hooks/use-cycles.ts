@@ -38,7 +38,7 @@ export function useCycle(id: string) {
           person:people(id, nickname),
           cycle_drugs(
             *,
-            drug:drugs(id, name, concentration, primary_category, sub_category, ester_type, inventory_count, tabs_per_box, package_unit, template_id, template:drug_templates(display_order))
+            drug:drugs(id, name, brand, concentration, primary_category, sub_category, ester_type, inventory_count, tabs_per_box, package_unit, template_id, template:drug_templates(display_order))
           )
         `)
         .eq('tenant_id', tenantId!)

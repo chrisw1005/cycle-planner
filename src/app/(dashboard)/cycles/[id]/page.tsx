@@ -619,6 +619,9 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
                     <Link href={`/drugs/${entries[0].drug_id}/edit?from=${encodeURIComponent(`/cycles/${id}`)}`} className="font-medium hover:underline">
                       {entries[0].drug?.name}
                     </Link>
+                    {entries[0].drug?.brand && (
+                      <span className="text-muted-foreground/60">{entries[0].drug.brand}</span>
+                    )}
                     {entries.map((cd, i) => {
                       const doseText = cd.injection_ml
                         ? `${cd.injection_ml}ml × ${cd.total_injections}次`
