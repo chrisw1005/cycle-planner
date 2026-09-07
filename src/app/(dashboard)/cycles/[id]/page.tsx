@@ -10,9 +10,9 @@ import { CalculationSummary } from '@/components/cycles/calculation-summary'
 import { CycleExportDialog } from '@/components/cycles/cycle-export-dialog'
 import { SaveTemplateDialog } from '@/components/cycles/save-template-dialog'
 import { EditCycleDrugDialog } from '@/components/cycles/edit-cycle-drug-dialog'
-import { generateAllCells } from '@/lib/calculations/schedule-engine'
+import { generateAllCells, compareDrugForDisplay } from '@/lib/calculations/schedule-engine'
 import { calculateInventoryDeltas, adjustDeltasForSkippedCells } from '@/lib/calculations/vial-calculator'
-import { getDoseUnit, cn, formatThousands } from '@/lib/utils'
+import { getDoseUnit, cn, formatThousands, CATEGORY_LABELS } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -605,76 +605,100 @@ export default function CycleBuilderPage({ params }: { params: Promise<{ id: str
             <CardTitle className="text-base">已選藥物</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-3">
               {(() => {
-                // Group cycle_drugs by drug_id
-                const grouped = new Map<string, typeof cycle.cycle_drugs>()
+                // Group by drug_id, then bucket by primary category so this list reads in the
+                // same 針劑 → 口服 → PCT → 其他 order the cells, inventory tables and exports use.
+                const byDrug = new Map<string, typeof cycle.cycle_drugs>()
                 for (const cd of cycle.cycle_drugs!) {
                   const key = cd.drug_id
-                  if (!grouped.has(key)) grouped.set(key, [])
-                  grouped.get(key)!.push(cd)
+                  if (!byDrug.has(key)) byDrug.set(key, [])
+                  byDrug.get(key)!.push(cd)
                 }
-                return Array.from(grouped.values()).map((entries) => (
-                  <div key={entries[0].drug_id} className="flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-sm">
-                    <Link href={`/drugs/${entries[0].drug_id}/edit?from=${encodeURIComponent(`/cycles/${id}`)}`} className="font-medium hover:underline">
-                      {entries[0].drug?.name}
-                    </Link>
-                    {entries[0].drug?.brand && (
-                      <span className="text-muted-foreground/60">{entries[0].drug.brand}</span>
-                    )}
-                    {entries.map((cd, i) => {
-                      const doseText = cd.injection_ml
-                        ? `${cd.injection_ml}ml × ${cd.total_injections}次`
-                        : cd.weekly_dose
-                          ? `${cd.weekly_dose}${getDoseUnit(cd.drug?.unit)}/wk`
-                          : `${cd.daily_dose}${getDoseUnit(cd.drug?.unit)}/day`
-                      return (
-                        <span key={cd.id} className="flex items-center gap-1">
-                          {i > 0 && <span className="text-muted-foreground/50">·</span>}
-                          {isEditable ? (
-                            <button
-                              type="button"
-                              onClick={() => setEditingCycleDrug({
-                                id: cd.id,
-                                drug_id: cd.drug_id,
-                                start_week: cd.start_week,
-                                end_week: cd.end_week,
-                                weekly_dose: cd.weekly_dose,
-                                daily_dose: cd.daily_dose,
-                                injection_ml: cd.injection_ml,
-                                total_injections: cd.total_injections,
-                                schedule_mode: cd.schedule_mode,
-                                drug: cd.drug ? { name: cd.drug.name, unit: cd.drug.unit } : null,
+                const buckets = new Map<string, (typeof cycle.cycle_drugs)[]>()
+                for (const entries of byDrug.values()) {
+                  const cat = entries[0].drug?.primary_category ?? 'Other'
+                  if (!buckets.has(cat)) buckets.set(cat, [])
+                  buckets.get(cat)!.push(entries)
+                }
+                return ['Injectable', 'Oral', 'PCT', 'Other']
+                  .filter((cat) => buckets.has(cat))
+                  .map((cat) => (
+                    <div key={cat} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">{CATEGORY_LABELS[cat] ?? cat}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {buckets
+                          .get(cat)!
+                          .sort((a, b) =>
+                            compareDrugForDisplay(
+                              a[0].drug ?? { primary_category: 'Other', name: '' },
+                              b[0].drug ?? { primary_category: 'Other', name: '' }
+                            )
+                          )
+                          .map((entries) => (
+                            <div key={entries[0].drug_id} className="flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-sm">
+                              <Link href={`/drugs/${entries[0].drug_id}/edit?from=${encodeURIComponent(`/cycles/${id}`)}`} className="font-medium hover:underline">
+                                {entries[0].drug?.name}
+                              </Link>
+                              {entries[0].drug?.brand && (
+                                <span className="text-muted-foreground/60">{entries[0].drug.brand}</span>
+                              )}
+                              {entries.map((cd, i) => {
+                                const doseText = cd.injection_ml
+                                  ? `${cd.injection_ml}ml × ${cd.total_injections}次`
+                                  : cd.weekly_dose
+                                    ? `${cd.weekly_dose}${getDoseUnit(cd.drug?.unit)}/wk`
+                                    : `${cd.daily_dose}${getDoseUnit(cd.drug?.unit)}/day`
+                                return (
+                                  <span key={cd.id} className="flex items-center gap-1">
+                                    {i > 0 && <span className="text-muted-foreground/50">·</span>}
+                                    {isEditable ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingCycleDrug({
+                                          id: cd.id,
+                                          drug_id: cd.drug_id,
+                                          start_week: cd.start_week,
+                                          end_week: cd.end_week,
+                                          weekly_dose: cd.weekly_dose,
+                                          daily_dose: cd.daily_dose,
+                                          injection_ml: cd.injection_ml,
+                                          total_injections: cd.total_injections,
+                                          schedule_mode: cd.schedule_mode,
+                                          drug: cd.drug ? { name: cd.drug.name, unit: cd.drug.unit } : null,
+                                        })}
+                                        className="-mx-0.5 flex items-center gap-1 rounded px-0.5 text-muted-foreground hover:bg-background/60 hover:underline"
+                                        title="點擊修改劑量與週數"
+                                      >
+                                        <span>{doseText}</span>
+                                        <span>W{cd.start_week}-{cd.end_week}</span>
+                                      </button>
+                                    ) : (
+                                      <>
+                                        <span className="text-muted-foreground">{doseText}</span>
+                                        <span className="text-muted-foreground">
+                                          W{cd.start_week}-{cd.end_week}
+                                        </span>
+                                      </>
+                                    )}
+                                    {isEditable && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5"
+                                        onClick={() => removeCycleDrug.mutate({ id: cd.id, cycle_id: id })}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </span>
+                                )
                               })}
-                              className="-mx-0.5 flex items-center gap-1 rounded px-0.5 text-muted-foreground hover:bg-background/60 hover:underline"
-                              title="點擊修改劑量與週數"
-                            >
-                              <span>{doseText}</span>
-                              <span>W{cd.start_week}-{cd.end_week}</span>
-                            </button>
-                          ) : (
-                            <>
-                              <span className="text-muted-foreground">{doseText}</span>
-                              <span className="text-muted-foreground">
-                                W{cd.start_week}-{cd.end_week}
-                              </span>
-                            </>
-                          )}
-                          {isEditable && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5"
-                              onClick={() => removeCycleDrug.mutate({ id: cd.id, cycle_id: id })}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </span>
-                      )
-                    })}
-                  </div>
-                ))
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ))
               })()}
             </div>
           </CardContent>
